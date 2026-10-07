@@ -1,0 +1,10 @@
+## Interface: 120100
+## Title: Alt Tracking Assistant
+## Notes: An alt tracking assistant for retail world of warcraft.
+## Author: Gilded Canary
+## Version: 1.0.0
+## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\???????????
+## SavedVariables: AltTrackingAssistantDB
+
+# Core framework and data model
+Core\Core.lua
