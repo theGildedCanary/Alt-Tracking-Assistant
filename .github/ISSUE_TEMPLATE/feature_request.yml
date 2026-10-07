@@ -1,0 +1,38 @@
+name: Feature Request
+description: Suggest a new tracker, report, workflow, or other improvement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Describing the goal or workflow is usually more useful than prescribing a specific implementation.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: What would you like ATA to help you do?
+      description: Describe the problem, missing information, or workflow you want improved.
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Desired behavior
+      description: What should the addon display, track, or do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Relevant WoW source
+      description: If known, include quest names/IDs, achievements, currencies, reputation, campaign steps, or other game data involved.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, spreadsheet examples, mockups, or other useful context.

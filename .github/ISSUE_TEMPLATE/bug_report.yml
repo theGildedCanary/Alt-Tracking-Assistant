@@ -1,0 +1,61 @@
+name: Bug Report
+description: Report a reproducible problem with Alt Tracking Assistant.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Alt Tracking Assistant. Please remove any account, character, realm, or SavedVariables information you do not want to post publicly.
+
+  - type: input
+    id: addon-version
+    attributes:
+      label: ATA version
+      description: The addon version shown in the TOC or release ZIP.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: wow-version
+    attributes:
+      label: World of Warcraft version
+      placeholder: Retail 12.1.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest reliable sequence that causes the problem.
+      placeholder: |
+        1. Log into...
+        2. Open...
+        3. Select...
+        4. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: lua-error
+    attributes:
+      label: Lua error or diagnostic output
+      description: Paste the full Lua error or useful diagnostic output if one exists.
+      render: text
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, addon conflicts, or anything else that may help.

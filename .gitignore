@@ -7,11 +7,15 @@ desktop.ini
 .vscode/
 .idea/
 
-# Temporary and backup files
+# Temporary, backup, and log files
 *.tmp
 *.bak
 *.swp
 *~
+*.log
+
+# Local build output
+build/
 
 # Packaged releases
 *.zip

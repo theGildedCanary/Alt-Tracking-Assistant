@@ -1,9 +1,9 @@
 ## Interface: 120100
 ## Title: Alt Tracking Assistant
-## Notes: An alt tracking assistant for retail world of warcraft.
+## Notes: Account-wide alternate character progression and checklist tracker for World of Warcraft Retail.
 ## Author: Gilded Canary
-## Version: 1.0.0
-## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\???????????
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\ATAIcon
 ## SavedVariables: AltTrackingAssistantDB
 
 # Core framework and data model

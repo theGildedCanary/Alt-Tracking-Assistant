@@ -1,0 +1,83 @@
+name: Build Release ZIP
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out release version
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Install Lua 5.1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+
+      - name: Validate addon
+        run: bash scripts/validate-addon.sh
+
+      - name: Verify TOC version matches release tag
+        shell: bash
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          TAG_VERSION="${TAG#v}"
+
+          TOC_VERSION=$(awk -F: '
+            /^## Version:/ {
+              gsub(/^[ \t]+|[ \t]+$/, "", $2)
+              print $2
+              exit
+            }
+          ' AltTrackingAssistant.toc)
+
+          echo "Release tag version: $TAG_VERSION"
+          echo "TOC version:         $TOC_VERSION"
+
+          if [ "$TAG_VERSION" != "$TOC_VERSION" ]; then
+            echo "ERROR: Release tag and TOC version do not match."
+            exit 1
+          fi
+
+      - name: Build addon package
+        shell: bash
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          PACKAGE_DIR="build/AltTrackingAssistant"
+          ZIP_NAME="AltTrackingAssistant-${TAG}.zip"
+
+          mkdir -p "$PACKAGE_DIR"
+
+          cp -R Core "$PACKAGE_DIR/"
+          cp -R Features "$PACKAGE_DIR/"
+          cp -R Media "$PACKAGE_DIR/"
+          cp -R UI "$PACKAGE_DIR/"
+
+          cp AltTrackingAssistant.toc "$PACKAGE_DIR/"
+          cp README.md "$PACKAGE_DIR/"
+          cp CHANGELOG.md "$PACKAGE_DIR/"
+          cp LICENSE "$PACKAGE_DIR/"
+
+          cd build
+          zip -r "../$ZIP_NAME" AltTrackingAssistant
+          cd ..
+
+          echo "Created $ZIP_NAME"
+
+      - name: Attach ZIP to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          ZIP_NAME="AltTrackingAssistant-${TAG}.zip"
+
+          gh release upload "$TAG" "$ZIP_NAME" --clobber
