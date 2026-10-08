@@ -12,9 +12,11 @@ Core\Core.lua
 # Tracker definitions and character progression scanning
 Features\Dragonflight.lua
 Features\WarWithin.lua
+Features\Shadowlands.lua
 Features\Midnight.lua
 
 # Main report window and minimap access
 UI\Theme.lua
+UI\Options.lua
 UI\Report.lua
 UI\MinimapButton.lua

@@ -13,6 +13,7 @@ eventFrame:SetScript("OnEvent", function(_, event, loadedAddon)
     AltTrackingAssistantDB = AltTrackingAssistantDB or {}
     AltTrackingAssistantDB.characters = AltTrackingAssistantDB.characters or {}
     AltTrackingAssistantDB.settings = AltTrackingAssistantDB.settings or {}
+    AltTrackingAssistantDB.settings.armorMains = AltTrackingAssistantDB.settings.armorMains or {}
 
     ATA.db = AltTrackingAssistantDB
 end)

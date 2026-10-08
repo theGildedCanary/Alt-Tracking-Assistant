@@ -32,8 +32,29 @@ The project uses semantic versioning:
 - Anchor Midnight checks directly to the three-column section body so Intro Skip and Crafters Needed render in their cells.
 - Place Midnight check labels and checkboxes directly in the section body with explicit three-column coordinates.
 - Add The War Within trackers for Intro Skip, Crafting to Order, Undermine, and Reshii Wraps.
+- Add the The War Within Delve Belt tracker for quest 91009.
+- Show the active Shadowlands covenant beside the covenant-review selector.
+- Remove Shadowlands Covenant Campaign progress because completed chapters could not be detected reliably.
+- Add an AddOn Options page segmented by expansion for controlling report tracker visibility.
+- Keep the active Shadowlands covenant visible when the optional covenant selector is disabled, and show that covenant's Renown.
+- Add selectable plate, mail, leather, and cloth armor mains to Shadowlands settings and highlight their active covenant in gold.
+- Color the active covenant name using its covenant-specific color.
+- Move Armor Mains into the account-wide Character Mains settings and refresh saved selections when the options page is shown.
+- Keep options-page checkbox and character selector displays synchronized with SavedVariables while the page is open.
+- Add independent Character Mains and Armor Mains modes.
+- Highlight configured mains in the character header and roster summary.
+- Preserve existing armor-main assignments when creating the new Character Mains configuration.
+- Keep character-main and armor-main modes independent, and abbreviate faction slot labels to A/H.
+- Split AddOn Options into an overview, Mains tabs, and four-column Expansion tracker pages.
+- Arrange Class Mains by roster class order and add the requested faction/class selector layouts.
+- Change expansion tracker settings to a three-column layout.
+- Track Silas' Secret Stash by quest completion or detecting the stash item, retaining the completed state after the stash is sold.
+- Add per-character manual tracker overrides under the Expansions options page.
+- Recognize either quest 66221 or 72293 for the Dragonflight Intro Skip tracker.
+- Show each character's approximate birth date using the date they earned the Level 10 achievement.
 - Add the The War Within banner emblem, orange styling, and expansion-specific progress bar to the report.
 - Add Dragonflight trackers for Silas' Secret Stash, Intro Skip, 5x Sparks, Forbidden Reach, Suffusion Camp, Zaralek Caverns, and Emerald Dream.
+- Add Shadowlands covenant selection and renown tracking, the four-covenant renown milestone count, and Korthia, Zereth Mortis, and Helsworn Chest checks.
 - Add the Dragonflight banner emblem, teal styling, and expansion-specific progress bar to the report.
 - Addon icon metadata.
 - Repository validation workflow.

@@ -3,6 +3,22 @@ local _, ATA = ...
 local reportFrame
 local ROW_HEIGHT = 30
 local ROSTER_ROW_HEIGHT = 42
+local ROSTER_GROUP_GAP = 12
+local ROSTER_CLASS_ORDER = {
+    PALADIN = { group = 1, order = 1 },
+    WARRIOR = { group = 1, order = 2 },
+    DEATHKNIGHT = { group = 1, order = 3 },
+    HUNTER = { group = 2, order = 1 },
+    SHAMAN = { group = 2, order = 2 },
+    EVOKER = { group = 2, order = 3 },
+    DRUID = { group = 3, order = 1 },
+    ROGUE = { group = 3, order = 2 },
+    MONK = { group = 3, order = 3 },
+    DEMONHUNTER = { group = 3, order = 4 },
+    MAGE = { group = 4, order = 1 },
+    PRIEST = { group = 4, order = 2 },
+    WARLOCK = { group = 4, order = 3 },
+}
 local CLASS_ICON_COORDS = {
     WARRIOR = { 0, 0.25, 0, 0.25 },
     MAGE = { 0.25, 0.5, 0, 0.25 },
@@ -37,22 +53,44 @@ local function GetCharacterEntries()
             key = key,
             label = GetCharacterLabel(record),
             record = record,
+            classFile = record.classFile,
+            name = record.name or "Unknown",
+            level = record.level,
+            faction = record.faction,
         }
         seen[key] = true
     end
 
     local currentGUID = UnitGUID("player")
     if currentGUID and not seen[currentGUID] then
+        local _, classFile = UnitClass("player")
         entries[#entries + 1] = {
             key = currentGUID,
             label = GetCharacterLabel({
                 name = UnitName("player"),
                 realm = GetRealmName(),
             }),
+            classFile = classFile,
+            name = UnitName("player") or "Unknown",
+            level = UnitLevel("player"),
+            faction = UnitFactionGroup("player"),
         }
     end
 
     table.sort(entries, function(left, right)
+        local leftOrder = ROSTER_CLASS_ORDER[left.classFile] or { group = 5, order = 99 }
+        local rightOrder = ROSTER_CLASS_ORDER[right.classFile] or { group = 5, order = 99 }
+        if leftOrder.group ~= rightOrder.group then
+            return leftOrder.group < rightOrder.group
+        end
+        if leftOrder.order ~= rightOrder.order then
+            return leftOrder.order < rightOrder.order
+        end
+        local leftLevel = left.level or 0
+        local rightLevel = right.level or 0
+        if leftLevel ~= rightLevel then
+            return leftLevel > rightLevel
+        end
         return left.label < right.label
     end)
 
@@ -75,16 +113,43 @@ end
 
 local function GetProgress(record, expansionKey)
     local definition = ATA.trackerDefinitions[expansionKey]
-    local progress = record and record.progress and record.progress[expansionKey]
-    if not progress then
-        return nil, 0, #definition.checks
+    local savedProgress = record and record.progress and record.progress[expansionKey]
+    local total = 0
+    for _, check in ipairs(definition.checks) do
+        if ATA:IsTrackerEnabled(expansionKey, check.id) and check.type ~= "select" then
+            total = total + 1
+        end
+    end
+    local scannedProgress = savedProgress
+        and (definition.getProgress and definition.getProgress(savedProgress) or savedProgress)
+    local progress = {}
+    for checkID, value in pairs(scannedProgress or {}) do
+        progress[checkID] = value
+    end
+    local hasProgress = savedProgress ~= nil
+    local overrides = record and record.manualOverrides and record.manualOverrides[expansionKey]
+    for _, check in ipairs(definition.checks) do
+        local override = overrides and overrides[check.id]
+        if check.type ~= "count" and check.type ~= "select" and override and override.active == true then
+            progress[check.id] = override.value == true
+            hasProgress = true
+        end
+    end
+    if not hasProgress then
+        return nil, 0, total
     end
 
     local completed = 0
-    local total = #definition.checks
     for _, check in ipairs(definition.checks) do
-        if progress[check.id] == true then
-            completed = completed + 1
+        if ATA:IsTrackerEnabled(expansionKey, check.id) and check.type ~= "select" then
+            local value = progress[check.id]
+            if check.type == "count" then
+                if type(value) == "number" then
+                    completed = completed + math.max(0, math.min(1, value / check.max))
+                end
+            elseif value == true then
+                completed = completed + 1
+            end
         end
     end
 
@@ -247,14 +312,14 @@ local function CreateExpansionCard(parent, anchor, expansionKey, options)
     sectionIcon:SetTexture(options.icon)
 
     local sectionTitle = sectionHeader:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    sectionTitle:SetPoint("TOPLEFT", sectionIcon, "TOPRIGHT", 8, -11)
+    sectionTitle:SetPoint("LEFT", sectionIcon, "RIGHT", 8, 10)
     sectionTitle:SetText(options.title)
     local titleFont, titleSize, titleFlags = sectionTitle:GetFont()
     sectionTitle:SetFont(titleFont, titleSize + 4, titleFlags)
     sectionTitle:SetTextColor(unpack(options.titleColor))
 
     local sectionSubtitle = sectionHeader:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    sectionSubtitle:SetPoint("TOPLEFT", sectionTitle, "BOTTOMLEFT", 0, -1)
+    sectionSubtitle:SetPoint("LEFT", sectionIcon, "RIGHT", 8, -10)
     sectionSubtitle:SetText(options.subtitle)
     sectionSubtitle:SetTextColor(
         options.subtitleColor[1],
@@ -279,72 +344,260 @@ local function CreateExpansionCard(parent, anchor, expansionKey, options)
     local columnCount = 3
     local sectionWidth = 644
     local columnWidth = sectionWidth / columnCount
+    local dividers = {}
     for column = 1, columnCount - 1 do
         local divider = sectionBody:CreateTexture(nil, "BACKGROUND")
         divider:SetTexture("Interface\\Buttons\\WHITE8X8")
         divider:SetVertexColor(unpack(ATA.UI.theme.colors.divider))
         divider:SetWidth(1)
-        divider:SetPoint("TOPLEFT", sectionBody, "TOPLEFT", column * columnWidth, -6)
-        divider:SetPoint("BOTTOMLEFT", sectionBody, "BOTTOMLEFT", column * columnWidth, 6)
+        dividers[column] = divider
     end
 
-    for index, check in ipairs(checks) do
-        local column = ((index - 1) % columnCount) + 1
-        local row = math.floor((index - 1) / columnCount)
-        local rowTop = -12 - (row * ROW_HEIGHT)
-        local columnLeft = (column - 1) * columnWidth
+    for _, check in ipairs(checks) do
+        if check.type == "select" then
+            local label = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+            label:SetPoint("TOPLEFT", sectionBody, "TOPLEFT", 16, -12)
+            label:SetText(check.label .. ":")
 
-        local label = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        label:SetPoint("TOPLEFT", sectionBody, "TOPLEFT", columnLeft + 16, rowTop)
-        label:SetWidth(columnWidth - 58)
-        label:SetJustifyH("LEFT")
-        label:SetText(check.label)
+            local button = CreateThemedButton(sectionBody, "Select Covenant", 170, 24)
+            button:SetPoint("TOPRIGHT", sectionBody, "TOPRIGHT", -16, -9)
+            button.label:ClearAllPoints()
+            button.label:SetPoint("LEFT", button, "LEFT", 9, 0)
+            button.label:SetPoint("RIGHT", button, "RIGHT", -22, 0)
+            button.label:SetJustifyH("LEFT")
 
-        local status = CreateFrame("Frame", nil, sectionBody, "BackdropTemplate")
-        status:SetSize(18, 18)
-        status:SetPoint("TOPLEFT", sectionBody, "TOPLEFT", (column * columnWidth) - 32, rowTop - 3)
-        status:SetFrameLevel(sectionBody:GetFrameLevel() + 2)
-        status:SetBackdrop({
-            bgFile = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Buttons\\WHITE8X8",
-            edgeSize = 1,
-            insets = { left = 1, right = 1, top = 1, bottom = 1 },
-        })
-        status:SetBackdropColor(unpack(ATA.UI.theme.colors.panel))
-        status:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.gold))
+            local dropdownArrow = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            dropdownArrow:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+            dropdownArrow:SetText("v")
+            dropdownArrow:SetTextColor(unpack(ATA.UI.theme.colors.gold))
 
-        local checkmark = status:CreateTexture(nil, "ARTWORK")
-        checkmark:SetSize(14, 14)
-        checkmark:SetPoint("CENTER")
-        checkmark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-        checkmark:SetVertexColor(unpack(ATA.UI.theme.colors.gold))
+            local viewLabel = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+            viewLabel:SetPoint("RIGHT", button, "LEFT", -10, 0)
+            viewLabel:SetText("View:")
+            viewLabel:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
 
-        local unknown = status:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        unknown:SetPoint("CENTER")
-        unknown:SetText("?")
-        unknown:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
-        checkRows[check.id] = { checkmark = checkmark, unknown = unknown }
+            local activeCovenantIcon = sectionBody:CreateTexture(nil, "ARTWORK")
+            activeCovenantIcon:SetSize(24, 24)
+            activeCovenantIcon:SetPoint("LEFT", label, "RIGHT", 8, 0)
+            activeCovenantIcon:Hide()
+
+            local activeCovenantText = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+            activeCovenantText:SetPoint("LEFT", activeCovenantIcon, "RIGHT", 6, 0)
+            activeCovenantText:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
+
+            local menu = CreateCard(mainCard, 170, 30)
+            menu:SetFrameStrata("DIALOG")
+            menu:SetFrameLevel(button:GetFrameLevel() + 10)
+            menu:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -2)
+            menu:Hide()
+            menu.rows = {}
+
+            button:SetScript("OnClick", function()
+                if menu:IsShown() then
+                    menu:Hide()
+                    return
+                end
+
+                local choices = ATA.shadowlandsCovenants or {}
+                menu:SetHeight(math.max(28, #choices * 28 + 4))
+                for index, covenant in ipairs(choices) do
+                    local option = menu.rows[index]
+                    if not option then
+                        option = CreateThemedButton(menu, "", 160, 26)
+                        menu.rows[index] = option
+                    end
+                    option:ClearAllPoints()
+                    option:SetPoint("TOPLEFT", menu, "TOPLEFT", 4, -((index - 1) * 28) - 3)
+                    option:SetPoint("RIGHT", menu, "RIGHT", -4, 0)
+                    option.label:SetText(covenant.name)
+                    local selectedCovenantID = covenant.id
+                    option:SetScript("OnClick", function()
+                        menu:Hide()
+                        if options.onCovenantChanged then
+                            options.onCovenantChanged(selectedCovenantID)
+                        end
+                    end)
+                    option:Show()
+                end
+                menu:Show()
+            end)
+
+            checkRows[check.id] = {
+                type = "select",
+                label = label,
+                button = button,
+                viewLabel = viewLabel,
+                activeIcon = activeCovenantIcon,
+                activeText = activeCovenantText,
+            }
+        else
+            local label = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+            label:SetJustifyH("LEFT")
+            label:SetText(check.label)
+
+            if check.type == "count" then
+                local value = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                value:SetWidth(48)
+                value:SetJustifyH("RIGHT")
+                value:SetTextColor(unpack(ATA.UI.theme.colors.text))
+                checkRows[check.id] = { type = "count", label = label, value = value, max = check.max }
+            else
+                local status = CreateFrame("Frame", nil, sectionBody, "BackdropTemplate")
+                status:SetSize(18, 18)
+                status:SetFrameLevel(sectionBody:GetFrameLevel() + 2)
+                status:SetBackdrop({
+                    bgFile = "Interface\\Buttons\\WHITE8X8",
+                    edgeFile = "Interface\\Buttons\\WHITE8X8",
+                    edgeSize = 1,
+                    insets = { left = 1, right = 1, top = 1, bottom = 1 },
+                })
+                status:SetBackdropColor(unpack(ATA.UI.theme.colors.panel))
+                status:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.gold))
+
+                local checkmark = status:CreateTexture(nil, "ARTWORK")
+                checkmark:SetSize(14, 14)
+                checkmark:SetPoint("CENTER")
+                checkmark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+                checkmark:SetVertexColor(unpack(ATA.UI.theme.colors.gold))
+
+                local unknown = status:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                unknown:SetPoint("CENTER")
+                unknown:SetText("?")
+                unknown:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
+                checkRows[check.id] = {
+                    type = "boolean",
+                    label = label,
+                    status = status,
+                    checkmark = checkmark,
+                    unknown = unknown,
+                }
+            end
+        end
     end
 
-    sectionBody:SetHeight(20 + (math.ceil(#checks / columnCount) * ROW_HEIGHT))
     local collapsedCardHeight = 62
-    local expandedCardHeight = collapsedCardHeight + sectionBody:GetHeight()
-    mainCard:SetHeight(expandedCardHeight)
-
     local isExpanded = true
-    sectionHeader:SetScript("OnClick", function()
-        isExpanded = not isExpanded
-        sectionBody:SetShown(isExpanded)
-        collapseIcon:SetTexture(isExpanded and "Interface\\Buttons\\UI-MinusButton-Up" or "Interface\\Buttons\\UI-PlusButton-Up")
+    local emptyMessage = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    emptyMessage:SetPoint("TOPLEFT", sectionBody, "TOPLEFT", 16, -12)
+    emptyMessage:SetText("No trackers enabled")
+    emptyMessage:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
+    emptyMessage:Hide()
+
+    local function LayoutChecks()
+        local covenantRowVisible = false
+        local visibleCheckCount = 0
+        local gridIndex = 0
+
+        for _, check in ipairs(checks) do
+            local row = checkRows[check.id]
+            local enabled = ATA:IsTrackerEnabled(expansionKey, check.id)
+            if check.type == "select" then
+                covenantRowVisible = true
+                row.label:SetShown(true)
+                row.button:SetShown(enabled)
+                row.viewLabel:SetShown(enabled)
+                row.activeIcon:SetShown(row.activeIcon:GetTexture() ~= nil)
+                row.activeText:SetShown(true)
+                visibleCheckCount = visibleCheckCount + 1
+            else
+                row.label:SetShown(enabled)
+                if row.type == "count" then
+                    row.value:SetShown(enabled)
+                else
+                    row.status:SetShown(enabled)
+                end
+                if enabled then
+                    gridIndex = gridIndex + 1
+                    visibleCheckCount = visibleCheckCount + 1
+                end
+            end
+        end
+
+        for column, divider in ipairs(dividers) do
+            local visible = gridIndex > 0
+            divider:ClearAllPoints()
+            divider:SetPoint(
+                "TOPLEFT",
+                sectionBody,
+                "TOPLEFT",
+                column * columnWidth,
+                covenantRowVisible and (-ROW_HEIGHT - 6) or -6
+            )
+            divider:SetPoint("BOTTOMLEFT", sectionBody, "BOTTOMLEFT", column * columnWidth, 6)
+            divider:SetShown(visible)
+        end
+
+        gridIndex = 0
+        for _, check in ipairs(checks) do
+            if ATA:IsTrackerEnabled(expansionKey, check.id) and check.type ~= "select" then
+                gridIndex = gridIndex + 1
+                local row = checkRows[check.id]
+                local column = ((gridIndex - 1) % columnCount) + 1
+                local gridRow = math.floor((gridIndex - 1) / columnCount)
+                    + (covenantRowVisible and 1 or 0)
+                local rowTop = -12 - (gridRow * ROW_HEIGHT)
+                local columnLeft = (column - 1) * columnWidth
+                row.label:ClearAllPoints()
+                row.label:SetPoint("TOPLEFT", sectionBody, "TOPLEFT", columnLeft + 16, rowTop)
+                row.label:SetWidth(columnWidth - (row.type == "count" and 82 or 58))
+                if row.type == "count" then
+                    row.value:ClearAllPoints()
+                    row.value:SetPoint(
+                        "TOPRIGHT",
+                        sectionBody,
+                        "TOPLEFT",
+                        column * columnWidth - 10,
+                        rowTop - 1
+                    )
+                else
+                    row.status:ClearAllPoints()
+                    row.status:SetPoint(
+                        "TOPLEFT",
+                        sectionBody,
+                        "TOPLEFT",
+                        (column * columnWidth) - 32,
+                        rowTop - 3
+                    )
+                end
+            elseif check.type == "select" then
+                local row = checkRows[check.id]
+                row.label:ClearAllPoints()
+                row.label:SetPoint("TOPLEFT", sectionBody, "TOPLEFT", 16, -12)
+                row.button:ClearAllPoints()
+                row.button:SetPoint("TOPRIGHT", sectionBody, "TOPRIGHT", -16, -9)
+                row.viewLabel:ClearAllPoints()
+                row.viewLabel:SetPoint("RIGHT", row.button, "LEFT", -10, 0)
+                row.activeIcon:ClearAllPoints()
+                row.activeIcon:SetPoint("LEFT", row.label, "RIGHT", 8, 0)
+                row.activeText:ClearAllPoints()
+                row.activeText:SetPoint("LEFT", row.activeIcon, "RIGHT", 6, 0)
+            end
+        end
+
+        emptyMessage:SetShown(visibleCheckCount == 0)
+        local bodyHeight = visibleCheckCount == 0
+            and 40
+            or (20 + ((math.ceil(gridIndex / columnCount) + (covenantRowVisible and 1 or 0)) * ROW_HEIGHT))
+        sectionBody:SetHeight(bodyHeight)
+        local expandedCardHeight = collapsedCardHeight + bodyHeight
         mainCard:SetHeight(isExpanded and expandedCardHeight or collapsedCardHeight)
         if options.onHeightChanged then
             options.onHeightChanged()
         end
+    end
+
+    sectionHeader:SetScript("OnClick", function()
+        isExpanded = not isExpanded
+        sectionBody:SetShown(isExpanded)
+        collapseIcon:SetTexture(isExpanded and "Interface\\Buttons\\UI-MinusButton-Up" or "Interface\\Buttons\\UI-PlusButton-Up")
+        LayoutChecks()
     end)
+    LayoutChecks()
 
     return {
         card = mainCard,
         checkRows = checkRows,
+        updateVisibility = LayoutChecks,
         progressText = sectionProgressText,
         progressBar = sectionProgressBar,
         progressColor = options.progressColor,
@@ -387,12 +640,13 @@ local function CreateRosterRow(parent)
 
     local name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     name:SetPoint("TOPLEFT", avatar, "TOPRIGHT", 7, -3)
-    name:SetPoint("RIGHT", row, "RIGHT", -40, 0)
     name:SetJustifyH("LEFT")
+    name:SetWordWrap(false)
 
     local completion = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     completion:SetPoint("TOPRIGHT", row, "TOPRIGHT", -7, -4)
     completion:SetJustifyH("RIGHT")
+    name:SetPoint("RIGHT", completion, "LEFT", -5, 0)
 
     local progressBar = CreateRoundedProgressBar(row, 5)
     progressBar:SetPoint("BOTTOMLEFT", name, "BOTTOMLEFT", 0, -6)
@@ -467,66 +721,21 @@ local function CreateReportFrame()
     characterIconMask:SetAllPoints(characterIcon)
     characterIcon:AddMaskTexture(characterIconMask)
 
-    local characterCaption = characterCard:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    characterCaption:SetPoint("TOPLEFT", characterCard, "TOPLEFT", 90, -9)
-    characterCaption:SetText("SELECT CHARACTER")
-    characterCaption:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
+    local characterNameText = characterCard:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    characterNameText:SetPoint("LEFT", characterIconBorder, "RIGHT", 14, 8)
+    characterNameText:SetWidth(200)
+    characterNameText:SetJustifyH("LEFT")
+    characterNameText:SetTextColor(unpack(ATA.UI.theme.colors.text))
 
-    local characterDropdown = CreateThemedButton(characterCard, "Select Character", 200, 26)
-    characterDropdown:SetPoint("TOPLEFT", characterCaption, "BOTTOMLEFT", 0, -5)
-    characterDropdown.label:SetJustifyH("LEFT")
-    characterDropdown.label:ClearAllPoints()
-    characterDropdown.label:SetPoint("LEFT", characterDropdown, "LEFT", 9, 0)
-    characterDropdown.label:SetPoint("RIGHT", characterDropdown, "RIGHT", -24, 0)
-
-    local dropdownArrow = characterDropdown:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    dropdownArrow:SetPoint("RIGHT", characterDropdown, "RIGHT", -8, 0)
-    dropdownArrow:SetText("v")
-    dropdownArrow:SetTextColor(unpack(ATA.UI.theme.colors.gold))
-
-    local characterMenu = CreateCard(characterCard, 200, 30)
-    characterMenu:SetFrameStrata("DIALOG")
-    characterMenu:SetFrameLevel(characterDropdown:GetFrameLevel() + 10)
-    characterMenu:SetPoint("TOPLEFT", characterDropdown, "BOTTOMLEFT", 0, -2)
-    characterMenu:Hide()
-    characterMenu.rows = {}
-
-    characterDropdown:SetScript("OnClick", function()
-        if characterMenu:IsShown() then
-            characterMenu:Hide()
-            return
-        end
-
-        local entries = GetCharacterEntries()
-        local menuHeight = math.max(28, #entries * 28 + 4)
-        characterMenu:SetHeight(menuHeight)
-        for index, entry in ipairs(entries) do
-            local option = characterMenu.rows[index]
-            if not option then
-                option = CreateThemedButton(characterMenu, "", 190, 26)
-                characterMenu.rows[index] = option
-            end
-            option:ClearAllPoints()
-            option:SetPoint("TOPLEFT", characterMenu, "TOPLEFT", 4, -((index - 1) * 28) - 3)
-            option:SetPoint("RIGHT", characterMenu, "RIGHT", -4, 0)
-            option.label:SetText(entry.label)
-            option.characterKey = entry.key
-            option:SetScript("OnClick", function(self)
-                ATA.selectedCharacterKey = self.characterKey
-                characterMenu:Hide()
-                ATA:UpdateReport()
-            end)
-            option:Show()
-        end
-        for index = #entries + 1, #characterMenu.rows do
-            characterMenu.rows[index]:Hide()
-        end
-        characterMenu:Show()
-    end)
+    local characterBirthDateText = characterCard:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    characterBirthDateText:SetPoint("TOPLEFT", characterNameText, "BOTTOMLEFT", 0, -3)
+    characterBirthDateText:SetWidth(200)
+    characterBirthDateText:SetJustifyH("LEFT")
+    characterBirthDateText:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
 
     local function AddCharacterField(labelText, x, width)
         local label = characterCard:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        label:SetPoint("TOPLEFT", characterCard, "TOPLEFT", x, -30)
+        label:SetPoint("TOPLEFT", characterCard, "TOPLEFT", x, -26)
         label:SetText(labelText)
         label:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
 
@@ -549,8 +758,10 @@ local function CreateReportFrame()
     classIcon:SetPoint("TOPLEFT", classLabel, "BOTTOMLEFT", 0, -5)
     classText:ClearAllPoints()
     classText:SetPoint("TOPLEFT", classLabel, "BOTTOMLEFT", 21, -5)
-    classText:SetWidth(91)
+    classText:SetWidth(155)
     classText:SetJustifyH("LEFT")
+    classText:SetWordWrap(false)
+    classText:SetNonSpaceWrap(false)
 
     local levelLabel, levelText = AddCharacterField("LEVEL", 732, 42)
 
@@ -604,7 +815,7 @@ local function CreateReportFrame()
         subtitleAlpha = 1,
         icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Singularity.png",
         titleColor = { 237 / 255, 181 / 255, 254 / 255 },
-        progressColor = { 236 / 255, 143 / 255, 248 / 255 },
+        progressColor = ATA.UI.theme.colors.progress.midnight,
         onHeightChanged = UpdateExpansionContentHeight,
     })
     expansionCards.theWarWithin = CreateExpansionCard(
@@ -619,7 +830,7 @@ local function CreateReportFrame()
             icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\TheWarWithin.png",
             iconSize = 46,
             titleColor = { 1, 216 / 255, 189 / 255 },
-            progressColor = { 248 / 255, 149 / 255, 4 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.theWarWithin,
             onHeightChanged = UpdateExpansionContentHeight,
         }
     )
@@ -634,8 +845,44 @@ local function CreateReportFrame()
             subtitleAlpha = 0.7,
             icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Dragonflight.png",
             titleColor = { 129 / 255, 232 / 255, 235 / 255 },
-            progressColor = { 32 / 255, 252 / 255, 250 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.dragonflight,
             onHeightChanged = UpdateExpansionContentHeight,
+        }
+    )
+    expansionCards.shadowlands = CreateExpansionCard(
+        expansionContent,
+        expansionCards.dragonflight.card,
+        "shadowlands",
+        {
+            title = "SHADOWLANDS",
+            subtitle = "BEYOND THE VEIL",
+            subtitleColor = { 1, 1, 1 },
+            subtitleAlpha = 0.7,
+            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Shadowlands.png",
+            titleColor = { 163 / 255, 248 / 255, 253 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.shadowlands,
+            onHeightChanged = UpdateExpansionContentHeight,
+            onCovenantChanged = function(covenantID)
+                local characterKey = ATA.selectedCharacterKey or UnitGUID("player")
+                local record = ATA.db.characters[characterKey]
+                if not record and characterKey == UnitGUID("player") then
+                    local success, result = ATA:ScanCurrentCharacter()
+                    if not success then
+                        print("|cffff4444Alt Tracking Assistant:|r " .. result)
+                        return
+                    end
+                    record = result
+                end
+                if not record then
+                    print("|cffff4444Alt Tracking Assistant:|r The selected character has no saved record.")
+                    return
+                end
+
+                record.progress = record.progress or {}
+                record.progress.shadowlands = record.progress.shadowlands or {}
+                record.progress.shadowlands.covenantID = covenantID
+                ATA:UpdateReport()
+            end,
         }
     )
     UpdateExpansionContentHeight()
@@ -754,17 +1001,100 @@ local function CreateReportFrame()
     rosterScroll:SetPoint("TOPLEFT", rosterDivider, "BOTTOMLEFT", 0, -4)
     rosterScroll:SetPoint("BOTTOMRIGHT", rosterCard, "BOTTOMRIGHT", -10, 10)
     rosterScroll:EnableMouseWheel(true)
+    rosterScroll:SetClipsChildren(true)
     rosterScroll:SetScript("OnMouseWheel", function(self, delta)
         local current = self:GetVerticalScroll()
         local maximum = self:GetVerticalScrollRange()
         self:SetVerticalScroll(math.max(0, math.min(maximum, current - (delta * ROSTER_ROW_HEIGHT))))
     end)
 
+    local rosterScrollBar = CreateFrame("Frame", nil, rosterCard, "BackdropTemplate")
+    rosterScrollBar:SetWidth(8)
+    rosterScrollBar:SetPoint("TOPLEFT", rosterScroll, "TOPRIGHT", 1, 0)
+    rosterScrollBar:SetPoint("BOTTOMLEFT", rosterScroll, "BOTTOMRIGHT", 1, 0)
+    rosterScrollBar:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+        insets = { left = 0, right = 0, top = 0, bottom = 0 },
+    })
+    rosterScrollBar:SetBackdropColor(0.035, 0.045, 0.055, 1)
+    rosterScrollBar:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.divider))
+    rosterScrollBar:Hide()
+
+    local rosterScrollThumb = CreateFrame("Button", nil, rosterScrollBar, "BackdropTemplate")
+    rosterScrollThumb:SetWidth(6)
+    rosterScrollThumb:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    rosterScrollThumb:SetBackdropColor(unpack(ATA.UI.theme.colors.goldDark))
+    rosterScrollThumb:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.gold))
+    rosterScrollThumb:RegisterForDrag("LeftButton")
+
     local rosterContent = CreateFrame("Frame", nil, rosterScroll)
-    rosterContent:SetSize(214, 1)
+    rosterContent:SetSize(1, 1)
     rosterScroll:SetScrollChild(rosterContent)
 
-    frame.characterDropdown = characterDropdown
+    local function UpdateRosterContentWidth(width)
+        rosterContent:SetWidth(math.max(1, width))
+    end
+
+    local function UpdateRosterScrollThumb()
+        local viewportHeight = rosterScroll:GetHeight()
+        local contentHeight = rosterContent:GetHeight()
+        local scrollRange = rosterScroll:GetVerticalScrollRange()
+        if viewportHeight <= 0 or contentHeight <= viewportHeight or scrollRange <= 0 then
+            rosterScrollThumb:Hide()
+            rosterScrollBar:Hide()
+            return
+        end
+
+        rosterScrollBar:Show()
+        rosterScrollThumb:Show()
+        local trackHeight = rosterScrollBar:GetHeight()
+        local thumbHeight = math.max(24, trackHeight * viewportHeight / contentHeight)
+        local thumbTravel = math.max(0, trackHeight - thumbHeight)
+        local scrollFraction = rosterScroll:GetVerticalScroll() / scrollRange
+        rosterScrollThumb:SetHeight(thumbHeight)
+        rosterScrollThumb:ClearAllPoints()
+        rosterScrollThumb:SetPoint("TOP", rosterScrollBar, "TOP", 0, -thumbTravel * scrollFraction)
+    end
+
+    rosterScroll:SetScript("OnVerticalScroll", UpdateRosterScrollThumb)
+    rosterScroll:SetScript("OnShow", UpdateRosterScrollThumb)
+    rosterScroll:SetScript("OnSizeChanged", function(_, width)
+        UpdateRosterContentWidth(width)
+        UpdateRosterScrollThumb()
+    end)
+    rosterContent:SetScript("OnSizeChanged", UpdateRosterScrollThumb)
+    UpdateRosterContentWidth(rosterScroll:GetWidth())
+
+    rosterScrollThumb:SetScript("OnDragStart", function(self)
+        self:SetScript("OnUpdate", function()
+            local scale = rosterScrollBar:GetEffectiveScale()
+            local cursorY = select(2, GetCursorPosition()) / scale
+            local trackTop = rosterScrollBar:GetTop()
+            local trackHeight = rosterScrollBar:GetHeight()
+            local thumbHeight = self:GetHeight()
+            local thumbTravel = trackHeight - thumbHeight
+            local scrollRange = rosterScroll:GetVerticalScrollRange()
+            if thumbTravel <= 0 or scrollRange <= 0 then
+                return
+            end
+
+            local thumbOffset = math.max(0, math.min(thumbTravel, trackTop - cursorY - (thumbHeight / 2)))
+            rosterScroll:SetVerticalScroll(scrollRange * thumbOffset / thumbTravel)
+        end)
+    end)
+    rosterScrollThumb:SetScript("OnDragStop", function(self)
+        self:SetScript("OnUpdate", nil)
+    end)
+
+    frame.characterNameText = characterNameText
+    frame.characterBirthDateText = characterBirthDateText
     frame.characterIcon = characterIcon
     frame.realmText = realmText
     frame.factionIcon = factionIcon
@@ -777,8 +1107,18 @@ local function CreateReportFrame()
     frame.rosterStats = rosterStats
     frame.rosterScroll = rosterScroll
     frame.rosterContent = rosterContent
+    frame.rosterScrollBar = rosterScrollBar
+    frame.rosterScrollThumb = rosterScrollThumb
+    frame.updateRosterScrollThumb = UpdateRosterScrollThumb
     frame.rosterRows = {}
-    frame.characterMenu = characterMenu
+    frame.rosterDividers = {}
+    frame:SetScript("OnShow", function(self)
+        self:SetScript("OnUpdate", function(updateFrame)
+            updateFrame:SetScript("OnUpdate", nil)
+            UpdateExpansionScrollThumb()
+            UpdateRosterScrollThumb()
+        end)
+    end)
     frame:Hide()
     return frame
 end
@@ -802,7 +1142,15 @@ function ATA:UpdateReport()
     local level = record and record.level or (isCurrentCharacter and UnitLevel("player"))
     local faction = record and record.faction or (isCurrentCharacter and UnitFactionGroup("player"))
 
-    reportFrame.characterDropdown.label:SetText(characterName)
+    reportFrame.characterNameText:SetText(characterName)
+    reportFrame.characterNameText:SetTextColor(
+        unpack(ATA:IsCharacterMain(selectedKey) and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.text)
+    )
+    reportFrame.characterBirthDateText:SetText(
+        record and record.level10Date
+            and ("DOB: " .. date("%b %d, %Y", record.level10Date))
+            or "DOB: Unknown"
+    )
     reportFrame.realmText:SetText(realm or "Unknown")
 
     local classColor = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
@@ -823,6 +1171,7 @@ function ATA:UpdateReport()
     reportFrame.levelText:SetText(level and tostring(level) or "--")
 
     if isCurrentCharacter then
+        reportFrame.characterIcon:SetTexCoord(0, 1, 0, 1)
         SetPortraitTexture(reportFrame.characterIcon, "player")
     elseif classFile and CLASS_ICON_COORDS[classFile] then
         reportFrame.characterIcon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
@@ -851,6 +1200,7 @@ function ATA:UpdateReport()
     end
 
     for expansionKey, card in pairs(reportFrame.expansionCards) do
+        card.updateVisibility()
         local progress, completed, total = GetProgress(record, expansionKey)
         if progress then
             local percent = total > 0 and math.floor((completed / total) * 100 + 0.5) or 0
@@ -862,10 +1212,60 @@ function ATA:UpdateReport()
         end
 
         for checkID, status in pairs(card.checkRows) do
-            if progress and progress[checkID] == true then
+            if status.type == "select" then
+                local covenantID = progress and progress[checkID]
+                if not covenantID
+                    and isCurrentCharacter
+                    and C_Covenants
+                    and C_Covenants.GetActiveCovenantID
+                then
+                    covenantID = C_Covenants.GetActiveCovenantID()
+                end
+                local covenantName = "Select Covenant"
+                local activeCovenantID = progress and progress.activeCovenantID
+                if not activeCovenantID
+                    and isCurrentCharacter
+                    and C_Covenants
+                    and C_Covenants.GetActiveCovenantID
+                then
+                    activeCovenantID = C_Covenants.GetActiveCovenantID()
+                end
+                local activeCovenant
+                for _, covenant in ipairs(ATA.shadowlandsCovenants or {}) do
+                    if covenant.id == covenantID then
+                        covenantName = covenant.name
+                    end
+                    if covenant.id == activeCovenantID then
+                        activeCovenant = covenant
+                    end
+                end
+                status.button.label:SetText(covenantName)
+                if activeCovenant then
+                    status.activeIcon:SetTexture(activeCovenant.icon)
+                    status.activeIcon:Show()
+                    status.activeText:SetText(activeCovenant.name)
+                    if ATA:IsArmorMain(selectedKey) then
+                        status.activeText:SetFontObject(GameFontNormal)
+                        status.activeText:SetTextColor(unpack(ATA.UI.theme.colors.gold))
+                    else
+                        status.activeText:SetFontObject(GameFontHighlight)
+                        status.activeText:SetTextColor(unpack(activeCovenant.color))
+                    end
+                else
+                    status.activeIcon:Hide()
+                    status.activeText:SetText("--")
+                    status.activeText:SetFontObject(GameFontHighlight)
+                    status.activeText:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
+                end
+            elseif status.type == "count" then
+                local value = progress and progress[checkID]
+                status.value:SetText(
+                    type(value) == "number" and (value .. "/" .. status.max) or ("--/" .. status.max)
+                )
+            elseif progress and progress[checkID] == true then
                 status.checkmark:Show()
                 status.unknown:Hide()
-            elseif progress then
+            elseif progress and progress[checkID] ~= nil then
                 status.checkmark:Hide()
                 status.unknown:Hide()
             else
@@ -896,7 +1296,29 @@ function ATA:UpdateReport()
 
     local content = reportFrame.rosterContent
     local rows = reportFrame.rosterRows
+    local dividers = reportFrame.rosterDividers
+    local rosterContentHeight = 0
+    local previousGroup
     for index, entry in ipairs(entries) do
+        local classOrder = ROSTER_CLASS_ORDER[entry.classFile] or { group = 5, order = 99 }
+        if previousGroup and classOrder.group ~= previousGroup then
+            local dividerIndex = index - 1
+            local divider = dividers[dividerIndex]
+            if not divider then
+                divider = content:CreateTexture(nil, "ARTWORK")
+                divider:SetTexture("Interface\\Buttons\\WHITE8X8")
+                divider:SetVertexColor(unpack(ATA.UI.theme.colors.gold))
+                divider:SetHeight(1)
+                dividers[dividerIndex] = divider
+            end
+            divider:ClearAllPoints()
+            divider:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -(rosterContentHeight + (ROSTER_GROUP_GAP / 2)))
+            divider:SetPoint("RIGHT", content, "RIGHT", -4, 0)
+            divider:Show()
+            rosterContentHeight = rosterContentHeight + ROSTER_GROUP_GAP
+        end
+        previousGroup = classOrder.group
+
         local row = rows[index]
         if not row then
             row = CreateRosterRow(content)
@@ -905,11 +1327,14 @@ function ATA:UpdateReport()
 
         row.characterKey = entry.key
         row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -((index - 1) * ROSTER_ROW_HEIGHT))
+        row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -rosterContentHeight)
         row:SetPoint("RIGHT", content, "RIGHT", 0, 0)
-        row.nameText:SetText(entry.record and entry.record.name or entry.label)
+        row.nameText:SetText(entry.name .. " - " .. (entry.level and tostring(entry.level) or "--"))
+        row.nameText:SetTextColor(
+            unpack(ATA:IsCharacterMain(entry.key) and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.text)
+        )
 
-        local classFile = entry.record and entry.record.classFile
+        local classFile = entry.classFile
         local red, green, blue = GetClassColor(classFile)
         local characterCompleted = 0
         local characterPossible = 0
@@ -930,12 +1355,15 @@ function ATA:UpdateReport()
             row.progressBar:SetValue(0, red, green, blue)
         end
 
-        local classIconCoords = classFile and CLASS_ICON_COORDS[classFile]
         if entry.key == currentGUID then
+            row.avatar:SetTexCoord(0, 1, 0, 1)
             SetPortraitTexture(row.avatar, "player")
-        elseif classIconCoords then
-            row.avatar:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
-            row.avatar:SetTexCoord(unpack(classIconCoords))
+        elseif entry.faction == "Alliance" then
+            row.avatar:SetTexture("Interface\\Icons\\Achievement_PVP_A_16")
+            row.avatar:SetTexCoord(0, 1, 0, 1)
+        elseif entry.faction == "Horde" then
+            row.avatar:SetTexture("Interface\\Icons\\Achievement_PVP_H_16")
+            row.avatar:SetTexCoord(0, 1, 0, 1)
         else
             row.avatar:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
             row.avatar:SetTexCoord(0, 1, 0, 1)
@@ -949,14 +1377,21 @@ function ATA:UpdateReport()
             row.background:SetVertexColor(0.08, 0.10, 0.13, 0.8)
         end
         row:Show()
+        rosterContentHeight = rosterContentHeight + ROSTER_ROW_HEIGHT
     end
 
     for index = #entries + 1, #rows do
         rows[index]:Hide()
     end
+    for index, divider in pairs(dividers) do
+        if index >= #entries then
+            divider:Hide()
+        end
+    end
 
-    content:SetHeight(math.max(1, #entries * ROSTER_ROW_HEIGHT))
+    content:SetHeight(math.max(1, rosterContentHeight))
     reportFrame.rosterScroll:SetVerticalScroll(0)
+    reportFrame.updateRosterScrollThumb()
 end
 
 function ATA:ToggleReport()

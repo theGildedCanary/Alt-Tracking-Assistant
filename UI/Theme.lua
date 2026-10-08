@@ -22,10 +22,16 @@ ATA.UI.theme = {
             warlordsOfDraenor = { 0.02, 0.34, 0.43, 1 },
             legion = { 0.12, 0.29, 0.08, 1 },
             battleForAzeroth = { 0.46, 0.08, 0.25, 1 },
-            shadowlands = { 0.12, 0.31, 0.56, 1 },
+            shadowlands = { 28 / 255, 72 / 255, 142 / 255, 1 },
             dragonflight = { 4 / 255, 64 / 255, 74 / 255, 1 },
             theWarWithin = { 121 / 255, 45 / 255, 11 / 255, 1 },
             midnight = { 51 / 255, 30 / 255, 83 / 255, 1 },
+        },
+        progress = {
+            shadowlands = { 79 / 255, 207 / 255, 254 / 255, 1 },
+            dragonflight = { 32 / 255, 252 / 255, 250 / 255, 1 },
+            theWarWithin = { 248 / 255, 149 / 255, 4 / 255, 1 },
+            midnight = { 236 / 255, 143 / 255, 248 / 255, 1 },
         },
     },
 }

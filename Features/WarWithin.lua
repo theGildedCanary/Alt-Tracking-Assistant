@@ -20,6 +20,11 @@ ATA.trackerDefinitions.theWarWithin = {
             questIDs = { 83151 },
         },
         {
+            id = "delveBelt",
+            label = "Delve Belt",
+            questIDs = { 91009 },
+        },
+        {
             id = "reshiiWraps",
             label = "Reshii Wraps",
             itemID = 235499,
