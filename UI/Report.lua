@@ -4,6 +4,7 @@ local reportFrame
 local ROW_HEIGHT = 30
 local ROSTER_ROW_HEIGHT = 42
 local ROSTER_GROUP_GAP = 12
+local TRUE_MAIN_ICON = "|TInterface\\GroupFrame\\UI-Group-LeaderIcon:14:14:0:0|t"
 local ROSTER_CLASS_ORDER = {
     PALADIN = { group = 1, order = 1 },
     WARRIOR = { group = 1, order = 2 },
@@ -1142,7 +1143,8 @@ function ATA:UpdateReport()
     local level = record and record.level or (isCurrentCharacter and UnitLevel("player"))
     local faction = record and record.faction or (isCurrentCharacter and UnitFactionGroup("player"))
 
-    reportFrame.characterNameText:SetText(characterName)
+    local trueMainMarker = ATA:IsTrueMain(selectedKey) and (" " .. TRUE_MAIN_ICON) or ""
+    reportFrame.characterNameText:SetText(characterName .. trueMainMarker)
     reportFrame.characterNameText:SetTextColor(
         unpack(ATA:IsCharacterMain(selectedKey) and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.text)
     )
@@ -1329,7 +1331,10 @@ function ATA:UpdateReport()
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -rosterContentHeight)
         row:SetPoint("RIGHT", content, "RIGHT", 0, 0)
-        row.nameText:SetText(entry.name .. " - " .. (entry.level and tostring(entry.level) or "--"))
+        local trueMainMarker = ATA:IsTrueMain(entry.key) and (" " .. TRUE_MAIN_ICON) or ""
+        row.nameText:SetText(
+            entry.name .. trueMainMarker .. " - " .. (entry.level and tostring(entry.level) or "--")
+        )
         row.nameText:SetTextColor(
             unpack(ATA:IsCharacterMain(entry.key) and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.text)
         )

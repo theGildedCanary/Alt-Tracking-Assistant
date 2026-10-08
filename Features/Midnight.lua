@@ -104,6 +104,20 @@ function ATA:ScanCurrentCharacter()
                     end
                 end
 
+                if not completed and check.achievementID then
+                    if not GetAchievementInfo then
+                        return false, "The achievement information API is unavailable."
+                    end
+                    local achievementID, _, _, _, _, _, _, _, _, _, _, _, wasEarnedByMe =
+                        GetAchievementInfo(check.achievementID)
+                    if achievementID ~= check.achievementID or type(wasEarnedByMe) ~= "boolean" then
+                        return false, "Achievement completion could not be read for achievement "
+                            .. check.achievementID
+                            .. "."
+                    end
+                    completed = wasEarnedByMe
+                end
+
                 if not completed and check.itemID then
                     if not itemCount then
                         return false, "The item count API is unavailable."

@@ -279,6 +279,28 @@ function ATA:IsArmorMain(characterKey)
     return false
 end
 
+function ATA:IsTrueMain(characterKey)
+    local settings = GetCharacterMainSettings()
+    return characterKey ~= nil
+        and settings ~= nil
+        and settings.trueMainEnabled == true
+        and settings.selections.trueMain == characterKey
+end
+
+function ATA:SetTrueMainEnabled(enabled)
+    local settings = GetCharacterMainSettings()
+    if not settings then
+        error("Alt Tracking Assistant settings are not initialized.")
+    end
+    if type(enabled) ~= "boolean" then
+        error("True Main enabled state must be a boolean.")
+    end
+    settings.trueMainEnabled = enabled
+    if self.UpdateReport then
+        self:UpdateReport()
+    end
+end
+
 function ATA:SetCharacterMainMode(modeGroup, modeID)
     local settings = GetCharacterMainSettings()
     if not settings then
@@ -950,12 +972,65 @@ local function CreateMainsPage(parent)
     armorPage:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT")
     armorPage:Hide()
 
+    local trueMainPage = CreateFrame("Frame", nil, page)
+    trueMainPage:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -4)
+    trueMainPage:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT")
+    trueMainPage:Hide()
+
+    local trueMainDescription = trueMainPage:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    trueMainDescription:SetPoint("TOP", trueMainPage, "TOP", 0, -18)
+    trueMainDescription:SetText("Choose the character you take through new content first.")
+
+    local trueMainSelector = CreateCharacterDropdown(
+        trueMainPage,
+        { id = "trueMain", label = "Character" },
+        { labelAbove = true, height = 58 }
+    )
+    trueMainSelector:SetSize(300, 58)
+    trueMainSelector:SetPoint("TOP", trueMainDescription, "BOTTOM", 0, -16)
+
+    local trueMainToggle = CreateFrame("Button", nil, trueMainPage)
+    trueMainToggle:SetSize(180, 26)
+    trueMainToggle:SetPoint("TOP", trueMainSelector, "BOTTOM", 0, -12)
+    local trueMainCheck = CreateBackdrop(trueMainToggle)
+    trueMainCheck:SetSize(16, 16)
+    trueMainCheck:SetPoint("LEFT", trueMainToggle, "LEFT", 0, 0)
+    local trueMainCheckmark = trueMainCheck:CreateTexture(nil, "ARTWORK")
+    trueMainCheckmark:SetSize(12, 12)
+    trueMainCheckmark:SetPoint("CENTER")
+    trueMainCheckmark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    trueMainCheckmark:SetVertexColor(unpack(ATA.UI.theme.colors.gold))
+    local trueMainLabel = trueMainToggle:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    trueMainLabel:SetPoint("LEFT", trueMainCheck, "RIGHT", 6, 0)
+    trueMainLabel:SetPoint("RIGHT", trueMainToggle, "RIGHT", -2, 0)
+    trueMainLabel:SetJustifyH("LEFT")
+    trueMainLabel:SetText("True Main")
+    local function RefreshTrueMain()
+        trueMainSelector:Refresh()
+        local settings = GetCharacterMainSettings()
+        trueMainCheckmark:SetShown(settings ~= nil and settings.trueMainEnabled == true)
+        trueMainToggle:SetEnabled(settings ~= nil and settings.selections.trueMain ~= nil)
+    end
+    trueMainToggle:SetScript("OnClick", function()
+        local settings = GetCharacterMainSettings()
+        ATA:SetTrueMainEnabled(not (settings and settings.trueMainEnabled == true))
+        RefreshTrueMain()
+    end)
+    trueMainPage.RefreshControls = RefreshTrueMain
+
     local function SetActiveTab(tabID)
         local isClass = tabID == "class"
+        local isArmor = tabID == "armor"
         classPage:SetShown(isClass)
-        armorPage:SetShown(not isClass)
-        classPage:RefreshControls()
-        armorPage:RefreshControls()
+        armorPage:SetShown(isArmor)
+        trueMainPage:SetShown(tabID == "trueMain")
+        if isClass then
+            classPage:RefreshControls()
+        elseif isArmor then
+            armorPage:RefreshControls()
+        else
+            RefreshTrueMain()
+        end
         for _, tab in ipairs(tabs.buttons) do
             tab:SetEnabled(tab.id ~= tabID)
         end
@@ -964,14 +1039,16 @@ local function CreateMainsPage(parent)
     for index, tabInfo in ipairs({
         { id = "class", label = "Class Mains" },
         { id = "armor", label = "Armor Mains" },
+        { id = "trueMain", label = "True Main" },
     }) do
+        local tabID = tabInfo.id
         local button = CreateFrame("Button", nil, tabs, "UIPanelButtonTemplate")
         button:SetSize(140, 26)
         button:SetPoint("LEFT", tabs, "LEFT", (index - 1) * 146, 0)
         button:SetText(tabInfo.label)
-        button.id = tabInfo.id
+        button.id = tabID
         button:SetScript("OnClick", function()
-            SetActiveTab(tabInfo.id)
+            SetActiveTab(tabID)
         end)
         tabs.buttons[index] = button
     end
@@ -980,6 +1057,7 @@ local function CreateMainsPage(parent)
     page.RefreshControls = function()
         classPage:RefreshControls()
         armorPage:RefreshControls()
+        RefreshTrueMain()
     end
     return page
 end

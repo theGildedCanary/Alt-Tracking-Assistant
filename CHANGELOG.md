@@ -52,6 +52,8 @@ The project uses semantic versioning:
 - Add per-character manual tracker overrides under the Expansions options page.
 - Recognize either quest 66221 or 72293 for the Dragonflight Intro Skip tracker.
 - Show each character's approximate birth date using the date they earned the Level 10 achievement.
+- Add a configurable True Main with a crown marker in the dashboard.
+- Track the Dragonflight Elegant Canvas Brush achievement per character.
 - Add the The War Within banner emblem, orange styling, and expansion-specific progress bar to the report.
 - Add Dragonflight trackers for Silas' Secret Stash, Intro Skip, 5x Sparks, Forbidden Reach, Suffusion Camp, Zaralek Caverns, and Emerald Dream.
 - Add Shadowlands covenant selection and renown tracking, the four-covenant renown milestone count, and Korthia, Zereth Mortis, and Helsworn Chest checks.

@@ -38,6 +38,7 @@ The current scanner records progress for Shadowlands, Dragonflight, The War With
 - **Suffusion Camp** — quest 75887 is complete.
 - **Zaralek Caverns** — quest 75643 is complete.
 - **Emerald Dream** — quest 77283 is complete.
+- **Elegant Canvas Brush** — achievement 16301 is earned by that character.
 
 **Midnight**
 
@@ -54,7 +55,7 @@ The current scanner records progress for Shadowlands, Dragonflight, The War With
 - **Delve Belt** — quest 91009 is complete.
 - **Reshii Wraps** — item 235499 is in the character's inventory, bags, bank, reagent bank, or account bank.
 
-Results are saved under each character's GUID in account-wide SavedVariables. The scanner records the character's approximate birth date from the character-earned Level 10 achievement. The scanner runs at login, after achievement or quest earn events, and when bags or bank contents change. Open the report from the minimap button or with `/ata`; it includes a manual rescan button. The **Alt Tracking Assistant** options page links to the dashboard and provides a tester thank-you. Configure character and armor mains on the **Mains** page, and tracker visibility or per-character **Manual Overrides** on the **Expansions** page. An active override replaces the scanner result for that character and tracker; inactive overrides leave scans in control. These settings and overrides are account-wide saved data. The active Shadowlands covenant is always shown; disabling **View Covenant** hides only the covenant selector and makes Renown display the active covenant's level.
+Results are saved under each character's GUID in account-wide SavedVariables. The scanner records the character's approximate birth date from the character-earned Level 10 achievement. The scanner runs at login, after achievement or quest earn events, and when bags or bank contents change. Open the report from the minimap button or with `/ata`; it includes a manual rescan button. The **Alt Tracking Assistant** options page links to the dashboard and provides a tester thank-you. Configure character mains, armor mains, and the separately designated **True Main** on the **Mains** page. The True Main is marked with a crown in the dashboard. Configure tracker visibility or per-character **Manual Overrides** on the **Expansions** page. An active override replaces the scanner result for that character and tracker; inactive overrides leave scans in control. These settings and overrides are account-wide saved data. The active Shadowlands covenant is always shown; disabling **View Covenant** hides only the covenant selector and makes Renown display the active covenant's level.
 
 ## Project Status
 

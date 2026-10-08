@@ -41,5 +41,10 @@ ATA.trackerDefinitions.dragonflight = {
             label = "Emerald Dream",
             questIDs = { 77283 },
         },
+        {
+            id = "elegantCanvasBrush",
+            label = "Elegant Canvas Brush",
+            achievementID = 16301,
+        },
     },
 }
