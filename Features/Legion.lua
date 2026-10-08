@@ -58,7 +58,7 @@ ATA.trackerDefinitions.legion = {
         },
         {
             id = "helarjarWorldQuests",
-            label = "Helarjar World Quests",
+            label = "Helarjar Wqs",
             questIDs = { 44721 },
         },
         {
@@ -79,7 +79,7 @@ ATA.trackerDefinitions.legion = {
         {
             id = "worthItsWeight",
             label = "Worth Its Weight",
-            questIDs = { 41174 },
+            questIDs = { 41176 },
             retainCompletion = true,
         },
     },

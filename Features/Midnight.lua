@@ -261,9 +261,6 @@ scanFrame:RegisterEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
 scanFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 scanFrame:RegisterEvent("BANKFRAME_OPENED")
 scanFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
-scanFrame:RegisterEvent("VOID_TRANSFER_DONE")
-scanFrame:RegisterEvent("VOID_STORAGE_UPDATE")
-scanFrame:RegisterEvent("VOID_STORAGE_CONTENTS_UPDATE")
 scanFrame:SetScript("OnEvent", function(_, event, questID)
     if event == "QUEST_TURNED_IN" and not watchedQuests[questID] and not watchAllQuestTurnIns then
         return
