@@ -153,6 +153,10 @@ local function GetProgress(record, expansionKey)
                         or check.max
                     completed = completed + math.max(0, math.min(1, value / maximum))
                 end
+            elseif check.type == "reputation" then
+                if type(value) == "number" then
+                    completed = completed + math.max(0, math.min(1, value))
+                end
             elseif value == true then
                 completed = completed + 1
             end
@@ -311,21 +315,15 @@ local function CreateExpansionCard(parent, anchor, expansionKey, options)
     collapseIcon:SetPoint("LEFT", sectionHeader, "LEFT", 12, 0)
     collapseIcon:SetTexture("Interface\\Buttons\\UI-MinusButton-Up")
 
-    local sectionIcon = sectionHeader:CreateTexture(nil, "OVERLAY")
-    local iconSize = options.iconSize or 56
-    sectionIcon:SetSize(iconSize, iconSize)
-    sectionIcon:SetPoint("LEFT", collapseIcon, "RIGHT", 8, 0)
-    sectionIcon:SetTexture(options.icon)
-
     local sectionTitle = sectionHeader:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    sectionTitle:SetPoint("LEFT", sectionIcon, "RIGHT", 8, 10)
+    sectionTitle:SetPoint("LEFT", collapseIcon, "RIGHT", 12, 10)
     sectionTitle:SetText(options.title)
     local titleFont, titleSize, titleFlags = sectionTitle:GetFont()
     sectionTitle:SetFont(titleFont, titleSize + 4, titleFlags)
     sectionTitle:SetTextColor(unpack(options.titleColor))
 
     local sectionSubtitle = sectionHeader:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    sectionSubtitle:SetPoint("LEFT", sectionIcon, "RIGHT", 8, -10)
+    sectionSubtitle:SetPoint("LEFT", collapseIcon, "RIGHT", 12, -10)
     sectionSubtitle:SetText(options.subtitle)
     sectionSubtitle:SetTextColor(
         options.subtitleColor[1],
@@ -441,7 +439,20 @@ local function CreateExpansionCard(parent, anchor, expansionKey, options)
             label:SetJustifyH("LEFT")
             label:SetText(check.label)
 
-            if check.type == "count" then
+            if check.type == "reputation" then
+                local value = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                value:SetWidth(40)
+                value:SetJustifyH("RIGHT")
+                value:SetTextColor(unpack(ATA.UI.theme.colors.text))
+                local bar = CreateRoundedProgressBar(sectionBody, 8)
+                bar:SetSize(80, 8)
+                checkRows[check.id] = {
+                    type = "reputation",
+                    label = label,
+                    value = value,
+                    bar = bar,
+                }
+            elseif check.type == "count" then
                 local value = sectionBody:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
                 value:SetWidth(48)
                 value:SetJustifyH("RIGHT")
@@ -513,8 +524,11 @@ local function CreateExpansionCard(parent, anchor, expansionKey, options)
                 visibleCheckCount = visibleCheckCount + 1
             else
                 row.label:SetShown(enabled)
-                if row.type == "count" then
+                if row.type == "count" or row.type == "reputation" then
                     row.value:SetShown(enabled)
+                    if row.bar then
+                        row.bar:SetShown(enabled)
+                    end
                 else
                     row.status:SetShown(enabled)
                 end
@@ -551,8 +565,13 @@ local function CreateExpansionCard(parent, anchor, expansionKey, options)
                 local columnLeft = (column - 1) * columnWidth
                 row.label:ClearAllPoints()
                 row.label:SetPoint("TOPLEFT", sectionBody, "TOPLEFT", columnLeft + 16, rowTop)
-                row.label:SetWidth(columnWidth - (row.type == "count" and 82 or 58))
-                if row.type == "count" then
+                row.label:SetWidth(columnWidth - (row.type == "reputation" and 146 or row.type == "count" and 82 or 58))
+                if row.type == "reputation" then
+                    row.value:ClearAllPoints()
+                    row.value:SetPoint("TOPRIGHT", sectionBody, "TOPLEFT", column * columnWidth - 10, rowTop - 1)
+                    row.bar:ClearAllPoints()
+                    row.bar:SetPoint("TOPRIGHT", sectionBody, "TOPLEFT", column * columnWidth - 56, rowTop - 3)
+                elseif row.type == "count" then
                     row.value:ClearAllPoints()
                     row.value:SetPoint(
                         "TOPRIGHT",
@@ -829,8 +848,6 @@ local function CreateReportFrame()
             subtitle = "Azeroth's Strangest Attractions",
             subtitleColor = { 1, 1, 1 },
             subtitleAlpha = 0.7,
-            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\DMF.png",
-            iconSize = 46,
             titleColor = { 251 / 255, 115 / 255, 187 / 255 },
             progressColor = ATA.UI.theme.colors.progress.darkmoonFaire,
             onHeightChanged = UpdateExpansionContentHeight,
@@ -845,7 +862,6 @@ local function CreateReportFrame()
             subtitle = "THE NEXT CHAPTER",
             subtitleColor = { 0.88, 0.78, 0.96 },
             subtitleAlpha = 1,
-            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Singularity.png",
             titleColor = { 237 / 255, 181 / 255, 254 / 255 },
             progressColor = ATA.UI.theme.colors.progress.midnight,
             onHeightChanged = UpdateExpansionContentHeight,
@@ -860,8 +876,6 @@ local function CreateReportFrame()
             subtitle = "THE WORLD BELOW",
             subtitleColor = { 1, 1, 1 },
             subtitleAlpha = 0.7,
-            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\TheWarWithin.png",
-            iconSize = 46,
             titleColor = { 1, 216 / 255, 189 / 255 },
             progressColor = ATA.UI.theme.colors.progress.theWarWithin,
             onHeightChanged = UpdateExpansionContentHeight,
@@ -876,7 +890,6 @@ local function CreateReportFrame()
             subtitle = "WORLD AWOKEN",
             subtitleColor = { 1, 1, 1 },
             subtitleAlpha = 0.7,
-            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Dragonflight.png",
             titleColor = { 129 / 255, 232 / 255, 235 / 255 },
             progressColor = ATA.UI.theme.colors.progress.dragonflight,
             onHeightChanged = UpdateExpansionContentHeight,
@@ -891,7 +904,6 @@ local function CreateReportFrame()
             subtitle = "BEYOND THE VEIL",
             subtitleColor = { 1, 1, 1 },
             subtitleAlpha = 0.7,
-            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Shadowlands.png",
             titleColor = { 163 / 255, 248 / 255, 253 / 255 },
             progressColor = ATA.UI.theme.colors.progress.shadowlands,
             onHeightChanged = UpdateExpansionContentHeight,
@@ -927,8 +939,6 @@ local function CreateReportFrame()
             subtitle = "A World Divided",
             subtitleColor = { 1, 1, 1 },
             subtitleAlpha = 0.7,
-            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\HeartOfAzeroth.png",
-            iconSize = 46,
             titleColor = { 204 / 255, 181 / 255, 130 / 255 },
             progressColor = ATA.UI.theme.colors.progress.battleForAzeroth,
             onHeightChanged = UpdateExpansionContentHeight,
@@ -943,9 +953,64 @@ local function CreateReportFrame()
             subtitle = "The Onslaught Begins",
             subtitleColor = { 1, 1, 1 },
             subtitleAlpha = 0.7,
-            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Legion.png",
             titleColor = { 181 / 255, 255 / 255, 188 / 255 },
             progressColor = ATA.UI.theme.colors.progress.legion,
+            onHeightChanged = UpdateExpansionContentHeight,
+        }
+    )
+    expansionCards.warlordsOfDraenor = CreateExpansionCard(
+        expansionContent,
+        expansionCards.legion.card,
+        "warlordsOfDraenor",
+        {
+            title = "WARLORDS OF DRAENOR",
+            subtitle = "A Rift In Time",
+            subtitleColor = { 1, 1, 1 },
+            subtitleAlpha = 0.7,
+            titleColor = { 255 / 255, 190 / 255, 182 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.warlordsOfDraenor,
+            onHeightChanged = UpdateExpansionContentHeight,
+        }
+    )
+    expansionCards.mistsOfPandaria = CreateExpansionCard(
+        expansionContent,
+        expansionCards.warlordsOfDraenor.card,
+        "mistsOfPandaria",
+        {
+            title = "MISTS OF PANDARIA",
+            subtitle = "A Continent Unveiled",
+            subtitleColor = { 1, 1, 1 },
+            subtitleAlpha = 0.7,
+            titleColor = { 181 / 255, 255 / 255, 239 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.mistsOfPandaria,
+            onHeightChanged = UpdateExpansionContentHeight,
+        }
+    )
+    expansionCards.cataclysm = CreateExpansionCard(
+        expansionContent,
+        expansionCards.mistsOfPandaria.card,
+        "cataclysm",
+        {
+            title = "CATACLYSM",
+            subtitle = "The World Shattered",
+            subtitleColor = { 1, 1, 1 },
+            subtitleAlpha = 0.7,
+            titleColor = { 255 / 255, 245 / 255, 182 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.cataclysm,
+            onHeightChanged = UpdateExpansionContentHeight,
+        }
+    )
+    expansionCards.classic = CreateExpansionCard(
+        expansionContent,
+        expansionCards.cataclysm.card,
+        "classic",
+        {
+            title = "CLASSIC",
+            subtitle = "The Beginning",
+            subtitleColor = { 1, 1, 1 },
+            subtitleAlpha = 0.7,
+            titleColor = { 255 / 255, 182 / 255, 223 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.classic,
             onHeightChanged = UpdateExpansionContentHeight,
         }
     )
@@ -1321,6 +1386,15 @@ function ATA:UpdateReport()
                     status.activeText:SetText("--")
                     status.activeText:SetFontObject(GameFontHighlight)
                     status.activeText:SetTextColor(unpack(ATA.UI.theme.colors.mutedText))
+                end
+            elseif status.type == "reputation" then
+                local value = progress and progress[checkID]
+                if type(value) == "number" then
+                    status.value:SetText(math.floor(value * 100 + 0.5) .. "%")
+                    status.bar:SetValue(value, unpack(card.progressColor))
+                else
+                    status.value:SetText("--")
+                    status.bar:SetValue(0, unpack(card.progressColor))
                 end
             elseif status.type == "count" then
                 local value = progress and progress[checkID]

@@ -8,6 +8,10 @@ local expansionOrder = {
     "shadowlands",
     "battleForAzeroth",
     "legion",
+    "warlordsOfDraenor",
+    "mistsOfPandaria",
+    "cataclysm",
+    "classic",
 }
 
 local characterMainModes = {
@@ -366,6 +370,7 @@ function ATA:SetManualOverride(characterKey, expansionKey, checkID, active, valu
         for _, check in ipairs(expansion.checks) do
             if check.id == checkID
                 and check.type ~= "select"
+                and check.type ~= "reputation"
                 and (check.type ~= "count" or check.manualOverride == true)
             then
                 validCheck = check
@@ -1339,7 +1344,7 @@ local function CreateExpansionsPage(parent)
             heading:SetTextColor(unpack(ATA.UI.theme.colors.progress[expansionKey]))
             section.rows = {}
             for _, check in ipairs(expansion.checks) do
-                if (check.type ~= "count" and check.type ~= "select") or check.manualOverride then
+                if (check.type ~= "count" and check.type ~= "select" and check.type ~= "reputation") or check.manualOverride then
                     local row = CreateManualOverrideRow(section, expansionKey, check)
                     section.rows[#section.rows + 1] = row
                     manualRows[#manualRows + 1] = row

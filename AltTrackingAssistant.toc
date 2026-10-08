@@ -13,6 +13,10 @@ Core\Core.lua
 Features\BattleForAzeroth.lua
 Features\DarkmoonFaire.lua
 Features\Legion.lua
+Features\WarlordsOfDraenor.lua
+Features\MistsOfPandaria.lua
+Features\Cataclysm.lua
+Features\Classic.lua
 Features\Dragonflight.lua
 Features\WarWithin.lua
 Features\Shadowlands.lua

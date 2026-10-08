@@ -204,8 +204,33 @@ function ATA:ScanCurrentCharacter()
                     end
                     completed = count > 0
                 end
+                if not completed and check.garrisonBuildingID and C_Garrison and C_Garrison.GetOwnedBuildingInfoAbbrev then
+                    for plotID = 1, 50 do
+                        if C_Garrison.GetOwnedBuildingInfoAbbrev(plotID) == check.garrisonBuildingID then
+                            completed = true
+                            break
+                        end
+                    end
+                end
                 if not check.itemIDsByClass then
-                    progress[expansionKey][check.id] = check.type == "count" and 0 or completed
+                    progress[expansionKey][check.id] = (check.type == "count" or check.type == "reputation") and 0
+                        or completed
+                end
+                if check.factionID then
+                    local factionData = C_Reputation and C_Reputation.GetFactionDataByID
+                        and C_Reputation.GetFactionDataByID(check.factionID)
+                    local fraction = previousProgress and previousProgress[check.id]
+                    if type(fraction) ~= "number" then
+                        fraction = 0
+                    end
+                    if factionData and type(factionData.currentStanding) == "number" then
+                        if (factionData.reaction or 0) >= 8 then
+                            fraction = 1
+                        else
+                            fraction = math.max(0, math.min(1, factionData.currentStanding / check.reputationMax))
+                        end
+                    end
+                    progress[expansionKey][check.id] = fraction
                 end
                 if check.questIDGroups then
                     local completedGroups = 0
