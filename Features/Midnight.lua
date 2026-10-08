@@ -35,6 +35,16 @@ for _, expansion in pairs(ATA.trackerDefinitions) do
         for _, questID in ipairs(check.questIDs or {}) do
             watchedQuests[questID] = true
         end
+        for _, questGroup in ipairs(check.questIDGroups or {}) do
+            for _, questID in ipairs(questGroup) do
+                watchedQuests[questID] = true
+            end
+        end
+        for _, classQuestIDs in pairs(check.questIDsByClass or {}) do
+            for _, questID in ipairs(classQuestIDs) do
+                watchedQuests[questID] = true
+            end
+        end
     end
 end
 
@@ -61,6 +71,34 @@ local function GetLevelTenAchievementDate()
     return time({ year = fullYear, month = month, day = day, hour = 12 })
 end
 
+local function GetVoidStorageItemIDs()
+    if not GetVoidItemInfo
+        or not CanUseVoidStorage
+        or not CanUseVoidStorage()
+        or not C_PlayerInteractionManager
+        or not C_PlayerInteractionManager.IsInteractingWithNpcOfType
+        or not Enum
+        or not Enum.PlayerInteractionType
+        or not Enum.PlayerInteractionType.VoidStorageBanker
+        or not C_PlayerInteractionManager.IsInteractingWithNpcOfType(
+            Enum.PlayerInteractionType.VoidStorageBanker
+        )
+    then
+        return nil
+    end
+
+    local itemIDs = {}
+    for tab = 1, 2 do
+        for slot = 1, 80 do
+            local itemID = GetVoidItemInfo(tab, slot)
+            if itemID then
+                itemIDs[itemID] = true
+            end
+        end
+    end
+    return itemIDs
+end
+
 function ATA:ScanCurrentCharacter()
     local guid = UnitGUID("player")
     if not guid or guid == "" then
@@ -71,9 +109,11 @@ function ATA:ScanCurrentCharacter()
         return false, "The quest completion API is unavailable."
     end
 
-    local itemCount = C_Item and C_Item.GetItemCount or GetItemCount
+    local itemCount = GetItemCount
     local progress = {}
     local previousRecord = self.db.characters[guid]
+    local _, playerClassFile = UnitClass("player")
+    local currentVoidStorageItems = GetVoidStorageItemIDs()
     for expansionKey, expansion in pairs(self.trackerDefinitions) do
         if expansion.scan then
             local expansionProgress, scanError = expansion.scan(
@@ -93,7 +133,19 @@ function ATA:ScanCurrentCharacter()
                     and previousProgress
                     and previousProgress[check.id] == true
                     or false
-                for _, questID in ipairs(check.questIDs or {}) do
+                if not completed and check.legacyProgress then
+                    local legacyProgress = previousRecord
+                        and previousRecord.progress
+                        and previousRecord.progress[check.legacyProgress.expansionKey]
+                    completed = legacyProgress
+                        and legacyProgress[check.legacyProgress.checkID] == true
+                        or false
+                end
+                local questIDs = check.questIDs
+                if check.questIDsByClass then
+                    questIDs = check.questIDsByClass[playerClassFile] or {}
+                end
+                for _, questID in ipairs(questIDs or {}) do
                     local questCompleted = C_QuestLog.IsQuestFlaggedCompleted(questID)
                     if type(questCompleted) ~= "boolean" then
                         return false, "Quest completion could not be read for quest " .. questID .. "."
@@ -102,6 +154,30 @@ function ATA:ScanCurrentCharacter()
                         completed = true
                         break
                     end
+                end
+                if check.itemIDsByClass then
+                    if not itemCount then
+                        return false, "The item count API is unavailable."
+                    end
+                    local artifactItemIDs = check.itemIDsByClass[playerClassFile] or {}
+                    local previousExpansionProgress = previousRecord
+                        and previousRecord.progress
+                        and previousRecord.progress[expansionKey]
+                    local voidStorageItems = currentVoidStorageItems
+                        or (previousExpansionProgress and previousExpansionProgress.voidStorageItems)
+                        or {}
+                    progress[expansionKey].voidStorageItems = voidStorageItems
+                    local artifactCount = 0
+                    for _, itemID in ipairs(artifactItemIDs) do
+                        local count = itemCount(itemID, true, true, true, true)
+                        if type(count) ~= "number" then
+                            return false, "Item count could not be read for item " .. itemID .. "."
+                        end
+                        if count > 0 or voidStorageItems[itemID] then
+                            artifactCount = artifactCount + 1
+                        end
+                    end
+                    progress[expansionKey][check.id] = artifactCount
                 end
 
                 if not completed and check.achievementID then
@@ -128,7 +204,26 @@ function ATA:ScanCurrentCharacter()
                     end
                     completed = count > 0
                 end
-                progress[expansionKey][check.id] = completed
+                if not check.itemIDsByClass then
+                    progress[expansionKey][check.id] = check.type == "count" and 0 or completed
+                end
+                if check.questIDGroups then
+                    local completedGroups = 0
+                    for _, questGroup in ipairs(check.questIDGroups) do
+                        local groupCompleted = false
+                        for _, questID in ipairs(questGroup) do
+                            local questCompleted = C_QuestLog.IsQuestFlaggedCompleted(questID)
+                            if type(questCompleted) ~= "boolean" then
+                                return false, "Quest completion could not be read for quest " .. questID .. "."
+                            end
+                            groupCompleted = groupCompleted or questCompleted
+                        end
+                        if groupCompleted then
+                            completedGroups = completedGroups + 1
+                        end
+                    end
+                    progress[expansionKey][check.id] = completedGroups
+                end
             end
         end
     end
@@ -162,7 +257,13 @@ scanFrame:RegisterEvent("COVENANT_CHOSEN")
 scanFrame:RegisterEvent("QUEST_TURNED_IN")
 scanFrame:RegisterEvent("BAG_UPDATE_DELAYED")
 scanFrame:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
+scanFrame:RegisterEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+scanFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 scanFrame:RegisterEvent("BANKFRAME_OPENED")
+scanFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+scanFrame:RegisterEvent("VOID_TRANSFER_DONE")
+scanFrame:RegisterEvent("VOID_STORAGE_UPDATE")
+scanFrame:RegisterEvent("VOID_STORAGE_CONTENTS_UPDATE")
 scanFrame:SetScript("OnEvent", function(_, event, questID)
     if event == "QUEST_TURNED_IN" and not watchedQuests[questID] and not watchAllQuestTurnIns then
         return

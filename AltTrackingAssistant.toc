@@ -10,6 +10,9 @@
 Core\Core.lua
 
 # Tracker definitions and character progression scanning
+Features\BattleForAzeroth.lua
+Features\DarkmoonFaire.lua
+Features\Legion.lua
 Features\Dragonflight.lua
 Features\WarWithin.lua
 Features\Shadowlands.lua

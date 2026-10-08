@@ -1,10 +1,13 @@
 local _, ATA = ...
 
 local expansionOrder = {
+    "darkmoonFaire",
     "midnight",
     "theWarWithin",
     "dragonflight",
     "shadowlands",
+    "battleForAzeroth",
+    "legion",
 }
 
 local characterMainModes = {
@@ -341,29 +344,37 @@ function ATA:GetManualOverride(characterKey, expansionKey, checkID)
         and record.manualOverrides
         and record.manualOverrides[expansionKey]
         and record.manualOverrides[expansionKey][checkID]
-    return override and override.active == true or false, override and override.value == true or false
+    return override and override.active == true or false, override and override.value or false
+end
+
+local function GetCheckMaximum(check, characterKey)
+    local record = characterKey and ATA.db and ATA.db.characters[characterKey]
+    return check.maxByClass and record and check.maxByClass[record.classFile] or check.max
 end
 
 function ATA:SetManualOverride(characterKey, expansionKey, checkID, active, value)
     if type(characterKey) ~= "string" or not self.db then
         error("A valid character and initialized settings are required for manual overrides.")
     end
-    if type(active) ~= "boolean" or type(value) ~= "boolean" then
-        error("Manual override active state and value must be booleans.")
+    if type(active) ~= "boolean" then
+        error("Manual override active state must be a boolean.")
     end
 
     local expansion = self.trackerDefinitions[expansionKey]
-    local validCheck = false
+    local validCheck
     if expansion then
         for _, check in ipairs(expansion.checks) do
-            if check.id == checkID and check.type ~= "count" and check.type ~= "select" then
-                validCheck = true
+            if check.id == checkID
+                and check.type ~= "select"
+                and (check.type ~= "count" or check.manualOverride == true)
+            then
+                validCheck = check
                 break
             end
         end
     end
     if not validCheck then
-        error("Invalid boolean tracker for manual override: " .. tostring(expansionKey) .. "/" .. tostring(checkID))
+        error("Invalid tracker for manual override: " .. tostring(expansionKey) .. "/" .. tostring(checkID))
     end
 
     local record = self.db.characters[characterKey]
@@ -376,6 +387,20 @@ function ATA:SetManualOverride(characterKey, expansionKey, checkID, active, valu
     end
     if not record then
         error("Cannot set a manual override for an uncached character.")
+    end
+
+    if validCheck.type == "count" then
+        local maximum = GetCheckMaximum(validCheck, characterKey)
+        if type(value) ~= "number"
+            or value % 1 ~= 0
+            or value < 0
+            or not maximum
+            or value > maximum
+        then
+            error("Manual count override must be a whole number between 0 and the tracker maximum.")
+        end
+    elseif type(value) ~= "boolean" then
+        error("Manual boolean override value must be a boolean.")
     end
 
     record.manualOverrides = record.manualOverrides or {}
@@ -1147,7 +1172,7 @@ local function CreateExpansionsPage(parent)
     local selectedCharacterKey
     local description = overrideContent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     description:SetPoint("TOPLEFT", overrideContent, "TOPLEFT", 8, -6)
-    description:SetText("Activate an override to replace the scan with True or False. Counts and selections are not overridable.")
+    description:SetText("Activate an override to replace scan results. Manual count trackers cycle from 0 to their maximum.")
 
     local characterLabel = overrideContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     characterLabel:SetPoint("TOPLEFT", overrideContent, "TOPLEFT", 8, -32)
@@ -1267,18 +1292,37 @@ local function CreateExpansionsPage(parent)
         row.Refresh = function()
             local active, value = GetValue()
             activeButton:SetText(active and "Override: Active" or "Override: Inactive")
-            valueButton:SetText(value and "Complete: True" or "Complete: False")
+            if check.type == "count" then
+                local maximum = GetCheckMaximum(check, selectedCharacterKey) or check.max
+                value = type(value) == "number" and value or 0
+                valueButton:SetText("Count: " .. value .. "/" .. maximum)
+            else
+                valueButton:SetText(value and "Complete: True" or "Complete: False")
+            end
             activeButton:SetEnabled(selectedCharacterKey ~= nil)
             valueButton:SetEnabled(selectedCharacterKey ~= nil)
         end
         activeButton:SetScript("OnClick", function()
             local active, value = GetValue()
+            if check.type == "count" then
+                value = type(value) == "number" and value or 0
+            end
             ATA:SetManualOverride(selectedCharacterKey, expansionKey, check.id, not active, value)
             row:Refresh()
         end)
         valueButton:SetScript("OnClick", function()
             local active, value = GetValue()
-            ATA:SetManualOverride(selectedCharacterKey, expansionKey, check.id, active, not value)
+            if check.type == "count" then
+                local maximum = GetCheckMaximum(check, selectedCharacterKey) or check.max
+                value = type(value) == "number" and value or 0
+                if active then
+                    value = value >= maximum and 0 or value + 1
+                end
+                active = true
+            else
+                value = not value
+            end
+            ATA:SetManualOverride(selectedCharacterKey, expansionKey, check.id, active, value)
             row:Refresh()
         end)
         row:Refresh()
@@ -1295,7 +1339,7 @@ local function CreateExpansionsPage(parent)
             heading:SetTextColor(unpack(ATA.UI.theme.colors.progress[expansionKey]))
             section.rows = {}
             for _, check in ipairs(expansion.checks) do
-                if check.type ~= "count" and check.type ~= "select" then
+                if (check.type ~= "count" and check.type ~= "select") or check.manualOverride then
                     local row = CreateManualOverrideRow(section, expansionKey, check)
                     section.rows[#section.rows + 1] = row
                     manualRows[#manualRows + 1] = row

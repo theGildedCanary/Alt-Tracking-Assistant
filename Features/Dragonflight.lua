@@ -5,13 +5,6 @@ ATA.trackerDefinitions.dragonflight = {
     name = "Dragonflight",
     checks = {
         {
-            id = "silasSecretStash",
-            label = "Silas' Secret Stash",
-            questIDs = { 38934 },
-            itemID = 127148,
-            retainCompletion = true,
-        },
-        {
             id = "introSkip",
             label = "Intro Skip",
             questIDs = { 66221, 72293 },

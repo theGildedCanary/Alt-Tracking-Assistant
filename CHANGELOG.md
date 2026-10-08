@@ -12,6 +12,10 @@ The project uses semantic versioning:
 
 ### Added
 
+- Add Legion quest trackers, Class Hall quest detection, and automatic class-specific artifact counts from inventory and Void Storage.
+- Show a zero baseline for manual count trackers, activate the Artifact count on adjustment, preserve class-specific maxima across character views, and retain Worth Its Weight completion.
+- Add Battle for Azeroth introduction, foothold, Nazjatar, Mechagon, cloak, and Taptaf trackers.
+- Add a Darkmoon Faire section with custom colors and move Silas' Secret Stash from Dragonflight.
 - Initial addon project scaffold.
 - Account-wide SavedVariables initialization.
 - Midnight quest completion scanning for the Intro Skip and Crafters Needed checks, saved per character GUID.

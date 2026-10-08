@@ -131,7 +131,10 @@ local function GetProgress(record, expansionKey)
     local overrides = record and record.manualOverrides and record.manualOverrides[expansionKey]
     for _, check in ipairs(definition.checks) do
         local override = overrides and overrides[check.id]
-        if check.type ~= "count" and check.type ~= "select" and override and override.active == true then
+        if check.manualOverride and override and override.active == true then
+            progress[check.id] = override.value
+            hasProgress = true
+        elseif check.type ~= "count" and check.type ~= "select" and override and override.active == true then
             progress[check.id] = override.value == true
             hasProgress = true
         end
@@ -146,7 +149,9 @@ local function GetProgress(record, expansionKey)
             local value = progress[check.id]
             if check.type == "count" then
                 if type(value) == "number" then
-                    completed = completed + math.max(0, math.min(1, value / check.max))
+                    local maximum = check.maxByClass and record and check.maxByClass[record.classFile]
+                        or check.max
+                    completed = completed + math.max(0, math.min(1, value / maximum))
                 end
             elseif value == true then
                 completed = completed + 1
@@ -441,7 +446,13 @@ local function CreateExpansionCard(parent, anchor, expansionKey, options)
                 value:SetWidth(48)
                 value:SetJustifyH("RIGHT")
                 value:SetTextColor(unpack(ATA.UI.theme.colors.text))
-                checkRows[check.id] = { type = "count", label = label, value = value, max = check.max }
+                checkRows[check.id] = {
+                    type = "count",
+                    label = label,
+                    value = value,
+                    max = check.max,
+                    maxByClass = check.maxByClass,
+                }
             else
                 local status = CreateFrame("Frame", nil, sectionBody, "BackdropTemplate")
                 status:SetSize(18, 18)
@@ -809,16 +820,37 @@ local function CreateReportFrame()
         expansionContent:SetHeight(contentHeight)
     end
 
-    expansionCards.midnight = CreateExpansionCard(expansionContent, expansionTopAnchor, "midnight", {
-        title = "MIDNIGHT",
-        subtitle = "THE NEXT CHAPTER",
-        subtitleColor = { 0.88, 0.78, 0.96 },
-        subtitleAlpha = 1,
-        icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Singularity.png",
-        titleColor = { 237 / 255, 181 / 255, 254 / 255 },
-        progressColor = ATA.UI.theme.colors.progress.midnight,
-        onHeightChanged = UpdateExpansionContentHeight,
-    })
+    expansionCards.darkmoonFaire = CreateExpansionCard(
+        expansionContent,
+        expansionTopAnchor,
+        "darkmoonFaire",
+        {
+            title = "DARKMOON FAIRE",
+            subtitle = "Azeroth's Strangest Attractions",
+            subtitleColor = { 1, 1, 1 },
+            subtitleAlpha = 0.7,
+            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\DMF.png",
+            iconSize = 46,
+            titleColor = { 251 / 255, 115 / 255, 187 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.darkmoonFaire,
+            onHeightChanged = UpdateExpansionContentHeight,
+        }
+    )
+    expansionCards.midnight = CreateExpansionCard(
+        expansionContent,
+        expansionCards.darkmoonFaire.card,
+        "midnight",
+        {
+            title = "MIDNIGHT",
+            subtitle = "THE NEXT CHAPTER",
+            subtitleColor = { 0.88, 0.78, 0.96 },
+            subtitleAlpha = 1,
+            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Singularity.png",
+            titleColor = { 237 / 255, 181 / 255, 254 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.midnight,
+            onHeightChanged = UpdateExpansionContentHeight,
+        }
+    )
     expansionCards.theWarWithin = CreateExpansionCard(
         expansionContent,
         expansionCards.midnight.card,
@@ -884,6 +916,37 @@ local function CreateReportFrame()
                 record.progress.shadowlands.covenantID = covenantID
                 ATA:UpdateReport()
             end,
+        }
+    )
+    expansionCards.battleForAzeroth = CreateExpansionCard(
+        expansionContent,
+        expansionCards.shadowlands.card,
+        "battleForAzeroth",
+        {
+            title = "BATTLE FOR AZEROTH",
+            subtitle = "A World Divided",
+            subtitleColor = { 1, 1, 1 },
+            subtitleAlpha = 0.7,
+            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\HeartOfAzeroth.png",
+            iconSize = 46,
+            titleColor = { 204 / 255, 181 / 255, 130 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.battleForAzeroth,
+            onHeightChanged = UpdateExpansionContentHeight,
+        }
+    )
+    expansionCards.legion = CreateExpansionCard(
+        expansionContent,
+        expansionCards.battleForAzeroth.card,
+        "legion",
+        {
+            title = "LEGION",
+            subtitle = "The Onslaught Begins",
+            subtitleColor = { 1, 1, 1 },
+            subtitleAlpha = 0.7,
+            icon = "Interface\\AddOns\\AltTrackingAssistant\\Media\\Legion.png",
+            titleColor = { 181 / 255, 255 / 255, 188 / 255 },
+            progressColor = ATA.UI.theme.colors.progress.legion,
+            onHeightChanged = UpdateExpansionContentHeight,
         }
     )
     UpdateExpansionContentHeight()
@@ -1261,8 +1324,9 @@ function ATA:UpdateReport()
                 end
             elseif status.type == "count" then
                 local value = progress and progress[checkID]
+                local maximum = status.maxByClass and record and status.maxByClass[record.classFile] or status.max
                 status.value:SetText(
-                    type(value) == "number" and (value .. "/" .. status.max) or ("--/" .. status.max)
+                    type(value) == "number" and (value .. "/" .. maximum) or ("--/" .. maximum)
                 )
             elseif progress and progress[checkID] == true then
                 status.checkmark:Show()
