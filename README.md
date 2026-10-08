@@ -67,11 +67,11 @@ The selected-character header presents the character portrait and selector, real
 
 Expansion progress uses a fixed three-column grid within bordered cards. Shadowlands uses `#1C488E`, Dragonflight uses `#04404A`, The War Within uses `#792D0B`, and Midnight uses `#331E53` for their title banners and section borders. Each expansion has its own title treatment and progress-bar color, while the progress-check area retains the standard gray-blue panel.
 
-Current development version: **0.1.0**
+Current version: **1.0.0**
 
 ## Installation
 
-Once releases are available:
+Download from the GitHub Releases page:
 
 1. Download the latest `AltTrackingAssistant-vX.Y.Z.zip` file from GitHub Releases.
 2. Extract it into your Retail WoW addon directory:

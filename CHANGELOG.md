@@ -8,6 +8,14 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
+## [1.0.0] - 2026-10-08
+
+### Added
+
+- First public release.
+- Add Warlords of Draenor, Mists of Pandaria, Cataclysm, and Classic expansion sections with their trackers, including garrison building checks and an AQ40 reputation progress bar.
+- Remove expansion header icons.
+
 ## [0.1.0] - Unreleased
 
 ### Added
