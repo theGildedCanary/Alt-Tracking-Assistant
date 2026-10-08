@@ -15,9 +15,43 @@ The project is designed around a cached character database: the currently logged
 - An all-characters overview for comparing progression across the roster
 - Organized report sections matching the categories used by the Alt Tracker spreadsheet
 
+## Implemented Progress Checks
+
+The current scanner records progress for Dragonflight, The War Within, and Midnight:
+
+**Dragonflight**
+
+- **Silas' Secret Stash** — quest 38934 is complete.
+- **Intro Skip** — quest 72293 is complete.
+- **5x Sparks** — quest 70900 is complete.
+- **Forbidden Reach** — quest 73076 is complete.
+- **Suffusion Camp** — quest 75887 is complete.
+- **Zaralek Caverns** — quest 75643 is complete.
+- **Emerald Dream** — quest 77283 is complete.
+
+**Midnight**
+
+- **Intro Skip** — quest 94993 or 95008 is complete.
+- **Crafters Needed** — quest 93723 is complete.
+
+**The War Within**
+
+- **Intro Skip** — quest 83543 is complete.
+- **Crafting to Order** — quest 84260 is complete.
+- **Undermine** — quest 83151 is complete.
+- **Reshii Wraps** — item 235499 is in the character's inventory, bags, bank, reagent bank, or account bank.
+
+Results are saved under the character's GUID in account-wide SavedVariables. The scanner runs at login, after tracked quests are turned in, and when bags or bank contents change. Open the report from the minimap button or with `/ata`; it includes a manual rescan button. Settings are not yet available, so there is no AddOn Options page yet.
+
 ## Project Status
 
-ATA is in early development. The repository currently contains the project scaffold, validation workflow, and automated release packaging.
+ATA is in early development. Its report displays Dragonflight, The War Within, and Midnight checks, character details, and a cached-roster summary. Additional expansions and trackers are still to come. The repository also includes the validation workflow and automated release packaging.
+
+The report UI uses a shared gray-blue and gold theme. The roster shows a live portrait for the logged-in character and class emblems for other cached characters, with progress bars colored by class.
+
+The selected-character header presents the character portrait and selector, realm, faction, class, level, and last-scan time in a single row.
+
+Expansion progress uses a fixed three-column grid within bordered cards. Dragonflight uses `#04404A`, The War Within uses `#792D0B`, and Midnight uses `#331E53` for their title banners and section borders. Each expansion has its own title treatment and progress-bar color, while the progress-check area retains the standard gray-blue panel.
 
 Current development version: **0.1.0**
 

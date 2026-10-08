@@ -3,8 +3,18 @@
 ## Notes: Account-wide alternate character progression and checklist tracker for World of Warcraft Retail.
 ## Author: Gilded Canary
 ## Version: 0.1.0
-## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\ATAIcon
+## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\ATAIcon.png
 ## SavedVariables: AltTrackingAssistantDB
 
 # Core framework and data model
 Core\Core.lua
+
+# Tracker definitions and character progression scanning
+Features\Dragonflight.lua
+Features\WarWithin.lua
+Features\Midnight.lua
+
+# Main report window and minimap access
+UI\Theme.lua
+UI\Report.lua
+UI\MinimapButton.lua
