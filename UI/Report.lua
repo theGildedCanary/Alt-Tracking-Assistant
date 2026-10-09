@@ -814,7 +814,7 @@ local function CreateReportFrame()
     contentRow:SetPoint("BOTTOM", frame, "BOTTOM", 0, 30)
 
     local expansionScroll = CreateFrame("ScrollFrame", nil, contentRow)
-    expansionScroll:SetPoint("TOPLEFT", contentRow, "TOPLEFT")
+    expansionScroll:SetPoint("TOPLEFT", contentRow, "TOPLEFT", 0, -30)
     expansionScroll:SetPoint("BOTTOMLEFT", contentRow, "BOTTOMLEFT")
     expansionScroll:SetWidth(650)
     expansionScroll:EnableMouseWheel(true)
@@ -1222,6 +1222,50 @@ local function CreateReportFrame()
         self:SetScript("OnUpdate", nil)
     end)
 
+    local notesPanel = ATA.CreateNotesPanel(contentRow, {
+        CreateCard = CreateCard,
+        CreateThemedButton = CreateThemedButton,
+    })
+    notesPanel:SetWidth(650)
+    notesPanel:SetPoint("TOPLEFT", contentRow, "TOPLEFT", 0, -30)
+    notesPanel:SetPoint("BOTTOMLEFT", contentRow, "BOTTOMLEFT")
+    notesPanel:Hide()
+
+    local tabButtons = {}
+    local function SelectTab(tab)
+        frame.activeTab = tab
+        local showNotes = tab == "notes"
+        notesPanel:SetShown(showNotes)
+        expansionScroll:SetShown(not showNotes)
+        if showNotes then
+            expansionScrollBar:Hide()
+        else
+            UpdateExpansionScrollThumb()
+        end
+        for key, button in pairs(tabButtons) do
+            local active = key == tab
+            button.label:SetTextColor(unpack(active and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.mutedText))
+            button:SetBackdropBorderColor(unpack(active and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.goldDark))
+        end
+        ATA:UpdateReport()
+    end
+    for index, info in ipairs({ { "tracking", "Tracking" }, { "notes", "Notes" } }) do
+        local button = CreateThemedButton(contentRow, info[2], 100, 24)
+        button:SetPoint("TOPLEFT", contentRow, "TOPLEFT", (index - 1) * 106, 0)
+        button:SetScript("OnLeave", function(self)
+            local active = frame.activeTab == info[1]
+            self:SetBackdropColor(0.12, 0.16, 0.20, 1)
+            self:SetBackdropBorderColor(unpack(active and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.goldDark))
+        end)
+        button:SetScript("OnClick", function()
+            SelectTab(info[1])
+        end)
+        tabButtons[info[1]] = button
+    end
+    frame.notesPanel = notesPanel
+    frame.activeTab = "tracking"
+    SelectTab("tracking")
+
     frame.characterNameText = characterNameText
     frame.characterBirthDateText = characterBirthDateText
     frame.characterIcon = characterIcon
@@ -1282,6 +1326,9 @@ function ATA:UpdateReport()
             or "DOB: Unknown"
     )
     reportFrame.realmText:SetText(realm or "Unknown")
+    if reportFrame.notesPanel and reportFrame.activeTab == "notes" then
+        reportFrame.notesPanel:Refresh(selectedKey, characterName, record ~= nil)
+    end
 
     local classColor = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
     reportFrame.classText:SetText(className or "--")

@@ -25,5 +25,6 @@ Features\Midnight.lua
 # Main report window and minimap access
 UI\Theme.lua
 UI\Options.lua
+UI\Notes.lua
 UI\Report.lua
 UI\MinimapButton.lua
