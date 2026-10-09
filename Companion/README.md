@@ -15,6 +15,10 @@ Only a tab named `Alt Tracking Assistant` is created/replaced; your other tabs a
 
 Headless: `python app.py --export <WoW folder> <Google Sheet URL | output.xlsx | output.csv>`
 
+## Roster tab
+
+The **Roster** tab shows every character in a spreadsheet-style grid (realm, faction, level, DOB, name, race, class main, class, then every tracker grouped by expansion). Data is copied into a local database (%APPDATA%\AltTrackingAssistantCompanion\companion.db) each time the addon data changes, so characters stay in the app even if they are no longer in the addon's data. The grid updates after you /reload or log out in game.
+
 ## Building the executable (maintainer, one time)
 
 Google sign-in needs an OAuth client belonging to the app. End users never see this step.

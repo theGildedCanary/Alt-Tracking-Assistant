@@ -75,6 +75,9 @@ ATA.trackerDefinitions.shadowlands = {
             covenantID = activeCovenantID
         end
 
+        local scanRenown = ATA:IsTrackerEnabled("shadowlands", "covenant")
+            or ATA:IsTrackerEnabled("shadowlands", "anima")
+            or ATA:IsTrackerEnabled("shadowlands", "renown")
         local renownByCovenant = {}
         for _, covenant in ipairs(covenants) do
             local previousRenown = previousProgress
@@ -84,7 +87,7 @@ ATA.trackerDefinitions.shadowlands = {
                 renownByCovenant[covenant.id] = previousRenown
             end
 
-            if C_CovenantSanctumUI and C_CovenantSanctumUI.GetRenownLevels then
+            if scanRenown and C_CovenantSanctumUI and C_CovenantSanctumUI.GetRenownLevels then
                 local levels = C_CovenantSanctumUI.GetRenownLevels(covenant.id)
                 if type(levels) == "table" then
                     local currentLevel
@@ -100,7 +103,8 @@ ATA.trackerDefinitions.shadowlands = {
             end
         end
 
-        if type(activeCovenantID) == "number"
+        if scanRenown
+            and type(activeCovenantID) == "number"
             and activeCovenantID > 0
             and C_CovenantSanctumUI
             and C_CovenantSanctumUI.GetRenownLevel
@@ -122,8 +126,9 @@ ATA.trackerDefinitions.shadowlands = {
             { id = "zerethMortis", questIDs = { 64957 } },
             { id = "helswornChest", questIDs = { 64256 } },
         }) do
-            progress[check.id] = false
-            for _, questID in ipairs(check.questIDs) do
+            local trackedCheck = ATA:IsTrackerEnabled("shadowlands", check.id)
+            progress[check.id] = not trackedCheck and previousProgress and previousProgress[check.id] or false
+            for _, questID in ipairs(trackedCheck and check.questIDs or {}) do
                 local completed = C_QuestLog.IsQuestFlaggedCompleted(questID)
                 if type(completed) ~= "boolean" then
                     return nil, "Quest completion could not be read for quest " .. questID .. "."

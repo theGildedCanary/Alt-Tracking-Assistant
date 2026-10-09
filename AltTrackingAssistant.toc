@@ -8,6 +8,7 @@
 
 # Core framework and data model
 Core\Core.lua
+AppSync.lua
 
 # Tracker definitions and character progression scanning
 Features\BattleForAzeroth.lua

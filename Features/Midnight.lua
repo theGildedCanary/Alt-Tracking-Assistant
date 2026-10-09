@@ -125,7 +125,19 @@ function ATA:ScanCurrentCharacter()
             progress[expansionKey] = expansionProgress
         else
             progress[expansionKey] = {}
+            local oldExpansionProgress = previousRecord
+                and previousRecord.progress
+                and previousRecord.progress[expansionKey]
+            local enabledChecks = {}
             for _, check in ipairs(expansion.checks) do
+                if self:IsTrackerEnabled(expansionKey, check.id) then
+                    enabledChecks[#enabledChecks + 1] = check
+                elseif oldExpansionProgress then
+                    -- Untracked: keep the last known value instead of scanning.
+                    progress[expansionKey][check.id] = oldExpansionProgress[check.id]
+                end
+            end
+            for _, check in ipairs(enabledChecks) do
                 local previousProgress = previousRecord
                     and previousRecord.progress
                     and previousRecord.progress[expansionKey]
@@ -258,6 +270,9 @@ function ATA:ScanCurrentCharacter()
     record.name = UnitName("player") or record.name or "Unknown"
     record.realm = GetRealmName() or record.realm or "Unknown"
     record.race = select(1, UnitRace("player")) or record.race
+    local sex = UnitSex("player")
+    -- UnitSex: 2 = male, 3 = female; stored as body type 1 / 2.
+    record.bodyType = (sex == 2 and 1) or (sex == 3 and 2) or record.bodyType
     local className, classFile = UnitClass("player")
     record.class = className or record.class
     record.classFile = classFile or record.classFile
@@ -286,10 +301,13 @@ scanFrame:RegisterEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
 scanFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 scanFrame:RegisterEvent("BANKFRAME_OPENED")
 scanFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
-scanFrame:SetScript("OnEvent", function(_, event, questID)
-    if event == "QUEST_TURNED_IN" and not watchedQuests[questID] and not watchAllQuestTurnIns then
-        return
-    end
+local pendingQuestIDs = {}
+local scanQueued = false
+
+local function runScan(retryEligible)
+    scanQueued = false
+    local questIDs = pendingQuestIDs
+    pendingQuestIDs = {}
 
     local success, message = ATA:ScanCurrentCharacter()
     if not success then
@@ -297,13 +315,13 @@ scanFrame:SetScript("OnEvent", function(_, event, questID)
         return
     end
 
-    if event == "QUEST_TURNED_IN" then
+    if next(questIDs) then
         local record = message
         for expansionKey, expansion in pairs(ATA.trackerDefinitions) do
             for _, check in ipairs(expansion.checks) do
                 if check.retainCompletion then
                     for _, trackedQuestID in ipairs(check.questIDs or {}) do
-                        if trackedQuestID == questID then
+                        if questIDs[trackedQuestID] then
                             record.progress[expansionKey][check.id] = true
                             break
                         end
@@ -317,7 +335,7 @@ scanFrame:SetScript("OnEvent", function(_, event, questID)
         ATA:UpdateReport()
     end
 
-    if event == "PLAYER_ENTERING_WORLD" and not message.level10Date and C_Timer and C_Timer.After then
+    if retryEligible and not message.level10Date and C_Timer and C_Timer.After then
         local scannedGUID = message.guid
         C_Timer.After(10, function()
             if UnitGUID("player") ~= scannedGUID then
@@ -334,4 +352,36 @@ scanFrame:SetScript("OnEvent", function(_, event, questID)
             end
         end)
     end
+end
+
+local retryNext = false
+local function queueScan(delay)
+    if scanQueued then
+        return
+    end
+    scanQueued = true
+    C_Timer.After(delay, function()
+        local retry = retryNext
+        retryNext = false
+        runScan(retry)
+    end)
+end
+
+scanFrame:SetScript("OnEvent", function(_, event, questID)
+    if event == "QUEST_TURNED_IN" then
+        if not watchedQuests[questID] and not watchAllQuestTurnIns then
+            return
+        end
+        pendingQuestIDs[questID] = true
+    end
+
+    -- PLAYER_ENTERING_WORLD follows PLAYER_LOGIN, so one scan covers both.
+    if event == "PLAYER_LOGIN" then
+        return
+    end
+    if event == "PLAYER_ENTERING_WORLD" then
+        retryNext = true
+    end
+
+    queueScan(event == "PLAYER_ENTERING_WORLD" and 3 or 2)
 end)
