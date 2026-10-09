@@ -12,6 +12,7 @@ from pathlib import Path
 import db
 import settings_sync
 import gsheets
+import roster_format
 import theme
 from layout import IGNORED, LAYOUT
 from lua_parser import LuaParseError, load_saved_variables
@@ -200,23 +201,6 @@ def realm_initials(realm):
 
 RACE_SHORT = {"Lightforged Draenei": "Lightforged", "Zandalari Troll": "Zandalari"}
 GENDERS = {1: "M", 2: "F"}
-GENDER_COLORS = {1: "#8fb3e0", 2: "#eba0bd"}
-
-
-def faction_cell(faction):
-    from grid import Cell
-
-    if faction not in theme.FACTION_COLORS:
-        return Cell(faction or "")
-    return Cell(faction[0], fg="#000000", bg=theme.FACTION_COLORS[faction])
-
-
-def gender_cell(body_type):
-    from grid import Cell
-
-    if body_type not in GENDERS:
-        return Cell()
-    return Cell(GENDERS[body_type], fg="#2b2b2b", bg=GENDER_COLORS[body_type])
 COVENANT_NAMES = {1: "Kyrian", 2: "Venthyr", 3: "Night Fae", 4: "Necrolord"}
 HIDDEN_TRACKERS = {("shadowlands", "covenantID")}
 TRACKER_TITLES = {
@@ -227,74 +211,164 @@ CENTERED_TRACKERS = set(TRACKER_TITLES)
 GROUP_TITLES = {"darkmoonFaire": "DMF"}
 
 
-def build_roster_grid(characters):
-    """Columns and cells for the spreadsheet-style roster view."""
+def load_format():
+    conn = db.connect()
+    try:
+        return roster_format.normalize(db.get_json(conn, "roster_format"))
+    finally:
+        conn.close()
+
+
+def save_format(fmt):
+    conn = db.connect()
+    try:
+        db.set_json(conn, "roster_format", fmt)
+    finally:
+        conn.close()
+
+
+def _cell_acct(record, fmt):
+    from grid import Cell
+
+    return Cell(record.get("account") or "", fg=fmt["colors"]["text"])
+
+
+def _cell_realm(record, fmt):
+    from grid import Cell
+
+    return Cell(realm_initials(record.get("realm")), fg=fmt["colors"]["text"])
+
+
+def _cell_fact(record, fmt):
+    from grid import Cell
+
+    faction = record.get("faction")
+    if faction not in fmt["factionColors"]:
+        return Cell(faction or "", fg=fmt["colors"]["text"])
+    return Cell(faction[0], fg=fmt["colors"]["factionText"], bg=fmt["factionColors"][faction])
+
+
+def _cell_lvl(record, fmt):
+    from grid import Cell
+
+    level = record.get("level")
+    return Cell(str(level) if level is not None else "", fg=fmt["colors"]["text"])
+
+
+def _cell_dob(record, fmt):
+    from grid import Cell
+
+    born = record.get("level10Date")
+    text = datetime.fromtimestamp(born).strftime("%m/%d/%Y") if born else ""
+    return Cell(text, fg=fmt["colors"]["text"], spacing=fmt["font"]["dateSpacing"])
+
+
+def _cell_name(record, fmt):
+    from grid import Cell
+
+    colors = fmt["colors"]
+    return Cell(record.get("name") or "", fg=colors["mainName"] if record.get("isMain") else colors["text"])
+
+
+def _cell_race(record, fmt):
+    from grid import Cell
+
+    return Cell(RACE_SHORT.get(record.get("race"), record.get("race") or ""), fg=fmt["colors"]["text"])
+
+
+def _cell_gender(record, fmt):
+    from grid import Cell
+
+    letter = GENDERS.get(record.get("bodyType"))
+    if not letter:
+        return Cell()
+    return Cell(letter, fg=fmt["colors"]["genderText"], bg=fmt["genderColors"][letter])
+
+
+def _cell_cm(record, fmt):
+    from grid import Cell
+
+    if not record.get("isMain"):
+        return Cell()
+    return Cell(fmt["mainMark"], fg=fmt["colors"]["mainMark"])
+
+
+def _cell_class(record, fmt):
+    from grid import Cell
+
+    name = record.get("class") or ""
+    color = fmt["classColors"].get(record.get("classFile"), "")
+    if fmt["classBackground"]:
+        return Cell(name, fg=fmt["colors"]["classText"], bg=color)
+    return Cell(name, fg=color or fmt["colors"]["text"])
+
+
+BASE_BUILDERS = {
+    "acct": _cell_acct,
+    "realm": _cell_realm,
+    "fact": _cell_fact,
+    "lvl": _cell_lvl,
+    "dob": _cell_dob,
+    "name": _cell_name,
+    "race": _cell_race,
+    "gender": _cell_gender,
+    "cm": _cell_cm,
+    "class": _cell_class,
+}
+
+
+def build_roster_grid(characters, fmt):
+    """Columns and cells for the spreadsheet-style roster view, styled by the roster format settings."""
     from grid import Cell, Column
 
+    colors = fmt["colors"]
     flats = [flatten_progress(c.get("progress")) for c in characters]
     tracker_columns = [c for c in ordered_columns(flats) if c not in HIDDEN_TRACKERS]
 
-    columns = [
-        Column("ACCT", 44, frozen=True, align="center", vertical=True, title_fg=theme.GOLD),
-        Column("Realm", 60, frozen=True, align="center", vertical=True, title_fg=theme.GOLD),
-        Column("Fact", 72, frozen=True, align="center", vertical=True, title_fg=theme.GOLD),
-        Column("Lvl", 44, frozen=True, align="center"),
-        Column("DOB", 86, frozen=True, align="center"),
-        Column("Name", 130, frozen=True, align="center"),
-        Column("Race", 110, align="center"),
-        Column("Gender", 60, align="center", vertical=True, title_fg=theme.GOLD),
-        Column("CM", 44, align="center"),
-        Column("Class", 110, align="center"),
-    ]
-
-    rows = []
-    for record in characters:
-        born = record.get("level10Date")
-        rows.append(
-            [
-                Cell(record.get("account") or ""),
-                Cell(realm_initials(record.get("realm"))),
-                faction_cell(record.get("faction")),
-                Cell(str(record["level"]) if record.get("level") is not None else ""),
-                Cell(datetime.fromtimestamp(born).strftime("%m/%d/%Y") if born else "", spacing=1),
-                Cell(record.get("name") or "", fg=theme.GOLD if record.get("isMain") else theme.TEXT),
-                Cell(RACE_SHORT.get(record.get("race"), record.get("race") or "")),
-                gender_cell(record.get("bodyType")),
-                Cell("★", fg=theme.GOLD) if record.get("isMain") else Cell(),
-                Cell(record.get("class") or "", fg="#000000", bg=theme.CLASS_COLORS.get(record.get("classFile"), "")),
-            ]
+    columns = []
+    rows = [[] for _ in characters]
+    for spec in fmt["columns"]:
+        if not spec["visible"]:
+            continue
+        columns.append(
+            Column(
+                spec["title"], 44, frozen=spec["frozen"], align=spec["align"], vertical=spec["vertical"],
+                bg=colors["headerBg"], fg=colors["baseTitle"], title_fg=colors["baseTitle"],
+            )
         )
+        for row, record in zip(rows, characters):
+            row.append(BASE_BUILDERS[spec["key"]](record, fmt))
 
     for expansion, key in tracker_columns:
-        shade = theme.EXPANSION_COLORS.get(expansion, theme.PANEL_ALT)
-        accent = theme.EXPANSION_ACCENTS.get(expansion, theme.GOLD)
+        shade = fmt["expansionShade"].get(expansion, colors["headerBg"])
+        accent = fmt["expansionAccent"].get(expansion, colors["baseTitle"])
         cells = []
         for flat in flats:
             value = flat.get((expansion, key))
             if (expansion, key) == ("shadowlands", "activeCovenantID"):
                 value = COVENANT_NAMES.get(value, "")
             if value is True:
-                cells.append(Cell("X", fg=accent, bg=shade))
+                cells.append(Cell(fmt["mark"], fg=accent, bg=shade))
             elif value is None or value is False or value == "":
                 cells.append(Cell())
             else:
                 cells.append(Cell(str(value), fg=accent))
         longest = max((len(c.text) for c in cells), default=0)
-        width = 44 if longest <= 8 else min(240, longest * 7 + 16)
         columns.append(
             Column(
-                TRACKER_TITLES.get((expansion, key), pretty(key)), width,
+                TRACKER_TITLES.get((expansion, key), pretty(key)), 44,
                 group=GROUP_TITLES.get(expansion, pretty(expansion)), bg=shade, fg=accent,
-                align="center" if longest <= 8 or (expansion, key) in CENTERED_TRACKERS else "w", vertical=True,
+                align="center" if longest <= 8 or (expansion, key) in CENTERED_TRACKERS else "w",
+                vertical=fmt["trackerTitlesVertical"], title_fg=colors["trackerTitle"],
             )
         )
         for row, cell in zip(rows, cells):
             row.append(cell)
 
     for record, row in zip(characters, rows):
-        if record.get("isMain"):
-            for cell in row:
-                cell.bold = True
+        bold = fmt["font"]["bold"] or (fmt["boldMainRows"] and record.get("isMain"))
+        for cell in row:
+            cell.bold = bool(bold)
 
     return columns, rows
 
@@ -412,8 +486,15 @@ def run_gui():
         reload_roster()
         return count
 
+    format_state = {"fmt": load_format(), "characters": []}
+
+    def change_format(fmt):
+        format_state["fmt"] = roster_format.normalize(fmt)
+        save_format(format_state["fmt"])
+        render_roster()
+
     settings_tab = SettingsTab(
-        notebook, save_and_reload, lambda: reload_roster()
+        notebook, save_and_reload, lambda: reload_roster(), change_format, format_state["fmt"]
     )
     notebook.add(settings_tab, text="Settings")
     frame = ttk.Frame(notebook, padding=12)
@@ -538,14 +619,19 @@ def run_gui():
     roster_grid = RosterGrid(roster_tab)
     roster_grid.pack(fill="both", expand=True)
 
+    def render_roster():
+        fmt = format_state["fmt"]
+        columns, rows = build_roster_grid(format_state["characters"], fmt)
+        roster_grid.set_data(columns, rows, grid_module.style_from_format(fmt))
+
     def reload_roster():
         try:
             characters = sync_database(list(files))
         except (OSError, LuaParseError, ValueError) as error:
             roster_status.set(f"Could not read addon data: {error}")
             return
-        columns, rows = build_roster_grid(characters)
-        roster_grid.set_data(columns, rows)
+        format_state["characters"] = characters
+        render_roster()
         settings, pending = load_settings(list(files)) if files else (settings_sync.normalize({}), False)
         settings_tab.load(characters, settings, pending)
         roster_status.set(f"{len(characters)} characters  ·  updated {datetime.now():%H:%M:%S}")

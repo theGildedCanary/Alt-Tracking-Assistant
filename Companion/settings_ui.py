@@ -1,36 +1,21 @@
-"""Settings tab: character mains, expansion tracking toggles and (later) formatting."""
+"""Settings tab: Main Selection, Tracking and Formatting pages, chosen from a list on the left."""
 
 import copy
 import tkinter as tk
 from tkinter import ttk
 
 import settings_sync as ss
+from format_ui import FormatPanel
 
 NONE_LABEL = "(none)"
 COLUMNS = 4
 
 
-class SettingsTab(ttk.Frame):
-    def __init__(self, parent, on_save, on_revert):
+class ScrollFrame(ttk.Frame):
+    def __init__(self, parent):
         super().__init__(parent)
-        self.on_save = on_save
-        self.on_revert = on_revert
-        self.characters = []
-        self.settings = ss.normalize({})
-        self.dirty = False
-        self.loaded = False
-        self.status = tk.StringVar()
-
-        bar = ttk.Frame(self, padding=(8, 6))
-        bar.pack(fill="x")
-        ttk.Button(bar, text="Save to addon", command=self._save).pack(side="left")
-        ttk.Button(bar, text="Revert", command=self._revert).pack(side="left", padx=6)
-        ttk.Label(bar, textvariable=self.status).pack(side="left", padx=10)
-
-        body = ttk.Frame(self)
-        body.pack(fill="both", expand=True)
-        self.canvas = tk.Canvas(body, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(body, orient="vertical", command=self.canvas.yview)
+        self.canvas = tk.Canvas(self, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
@@ -43,6 +28,58 @@ class SettingsTab(ttk.Frame):
     def _on_wheel(self, event):
         if self.winfo_ismapped() and str(event.widget).startswith(str(self.canvas)):
             self.canvas.yview_scroll(-3 * (event.delta // 120 or (1 if event.delta > 0 else -1)), "units")
+
+
+PAGES = ("Main Selection", "Tracking", "Formatting")
+
+
+class SettingsTab(ttk.Frame):
+    def __init__(self, parent, on_save, on_revert, on_format_change, fmt):
+        super().__init__(parent)
+        self.on_save = on_save
+        self.on_revert = on_revert
+        self.characters = []
+        self.settings = ss.normalize({})
+        self.dirty = False
+        self.loaded = False
+        self.status = tk.StringVar()
+
+        nav = ttk.Frame(self, padding=(8, 8))
+        nav.pack(side="left", fill="y")
+        ttk.Separator(self, orient="vertical").pack(side="left", fill="y")
+        content = ttk.Frame(self)
+        content.pack(side="left", fill="both", expand=True)
+
+        self.bar = ttk.Frame(content, padding=(8, 6))
+        ttk.Button(self.bar, text="Save to addon", command=self._save).pack(side="left")
+        ttk.Button(self.bar, text="Revert", command=self._revert).pack(side="left", padx=6)
+        ttk.Label(self.bar, textvariable=self.status).pack(side="left", padx=10)
+
+        self.holder = ttk.Frame(content)
+        self.holder.pack(side="bottom", fill="both", expand=True)
+        self.pages = {}
+        for name in PAGES:
+            self.pages[name] = ScrollFrame(self.holder)
+        self.format_panel = FormatPanel(self.pages["Formatting"].inner, on_format_change, fmt)
+        self.format_panel.pack(fill="both", expand=True)
+
+        self.page_var = tk.StringVar(value=PAGES[0])
+        for name in PAGES:
+            ttk.Radiobutton(
+                nav, text=name, value=name, variable=self.page_var, style="Toolbutton", width=16,
+                command=self._show_page,
+            ).pack(fill="x", pady=2)
+        self._show_page()
+
+    def _show_page(self):
+        name = self.page_var.get()
+        for page in self.pages.values():
+            page.pack_forget()
+        self.pages[name].pack(fill="both", expand=True)
+        if name == "Formatting":
+            self.bar.pack_forget()
+        else:
+            self.bar.pack(fill="x", before=self.holder)
 
     def load(self, characters, settings, pending):
         """Show settings from the addon. Unsaved edits are kept when new data arrives."""
@@ -86,18 +123,19 @@ class SettingsTab(ttk.Frame):
             entries.append((f"{record.get('name') or 'Unknown'} - {record.get('realm') or 'Unknown Realm'}", record["guid"]))
         return sorted(entries, key=lambda e: e[0].lower())
 
-    def _section(self, title):
-        box = ttk.LabelFrame(self.inner, text=title, padding=10)
+    def _section(self, page, title):
+        box = ttk.LabelFrame(self.pages[page].inner, text=title, padding=10)
         box.pack(fill="x", pady=(0, 12))
         return box
 
     def _build(self):
-        for child in self.inner.winfo_children():
-            child.destroy()
+        for page in ("Main Selection", "Tracking"):
+            for child in self.pages[page].inner.winfo_children():
+                child.destroy()
         mains = self.settings["characterMains"]
         known = {r["guid"]: f"{r.get('name') or 'Unknown'} - {r.get('realm') or 'Unknown Realm'}" for r in self.characters}
 
-        box = self._section("Character Mains")
+        box = self._section("Main Selection", "Character Mains")
         self._mode_picker(box, "Main mode:", ss.CHARACTER_MODES, "characterMode", row=0)
         true_row = ttk.Frame(box)
         true_row.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 2))
@@ -114,13 +152,13 @@ class SettingsTab(ttk.Frame):
         slots_frame.grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self._slot_grid(slots_frame, ss.character_slots(mains["characterMode"]), known)
 
-        box = self._section("Armor Mains")
+        box = self._section("Main Selection", "Armor Mains")
         self._mode_picker(box, "Armor mode:", ss.ARMOR_MODES, "armorMode", row=0)
         slots_frame = ttk.Frame(box)
         slots_frame.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self._slot_grid(slots_frame, ss.armor_slots(mains["armorMode"]), known)
 
-        box = self._section("Expansion Tracking")
+        box = self._section("Tracking", "Expansion Tracking")
         for exp_key, exp_title, checks in ss.TRACKERS:
             ttk.Label(box, text=exp_title, font=("TkDefaultFont", 9, "bold")).pack(anchor="w", pady=(6, 2))
             row = ttk.Frame(box)
@@ -136,9 +174,6 @@ class SettingsTab(ttk.Frame):
                 ttk.Checkbutton(row, text=label, variable=var, command=toggle).grid(
                     row=index // COLUMNS, column=index % COLUMNS, sticky="w", padx=(0, 18), pady=1
                 )
-
-        box = self._section("Formatting")
-        ttk.Label(box, text="Formatting options will be added here.").pack(anchor="w")
 
     def _mode_picker(self, parent, caption, modes, field, row):
         mains = self.settings["characterMains"]

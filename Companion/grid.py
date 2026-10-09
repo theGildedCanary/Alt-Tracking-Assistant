@@ -10,10 +10,10 @@ from tkinter import ttk
 
 import theme
 
-BAND_HEIGHT = 22
+MIN_BAND_HEIGHT = 22
 MIN_TITLE_HEIGHT = 90
-LETTER_SPACING = 2
-ROW_HEIGHT = 24
+
+
 def _load_font():
     """Register the bundled Montserrat for this process; fall back to Segoe UI if unavailable."""
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -27,10 +27,36 @@ def _load_font():
 
 
 FAMILY = _load_font()
-FONT = (FAMILY, 9)
-FONT_BOLD = (FAMILY, 9, "bold")
-FONT_TITLE = (FAMILY, 7, "bold")
-FONT_VERT = (FAMILY, 7, "bold")
+
+
+@dataclass
+class GridStyle:
+    family: str = FAMILY
+    body_size: int = 9
+    title_size: int = 7
+    title_bold: bool = True
+    spacing: int = 2
+    row_height: int = 24
+    bg: str = theme.PANEL
+    stripe: str = theme.PANEL_ALT
+    line: str = theme.DIVIDER
+    separator: str = theme.GOLD
+
+
+def style_from_format(fmt):
+    colors = fmt["colors"]
+    return GridStyle(
+        family=fmt["font"]["family"],
+        body_size=fmt["font"]["bodySize"],
+        title_size=fmt["font"]["titleSize"],
+        title_bold=fmt["font"]["titleBold"],
+        spacing=fmt["font"]["titleSpacing"],
+        row_height=fmt["rowHeight"],
+        bg=colors["background"],
+        stripe=colors["stripe"] if fmt["stripes"] else colors["background"],
+        line=colors["gridLine"],
+        separator=colors["separator"],
+    )
 
 
 @dataclass
@@ -60,16 +86,19 @@ class RosterGrid(ttk.Frame):
         super().__init__(parent)
         self.columnconfigure(1, weight=1)
         self.rowconfigure(1, weight=1)
+        self.style = GridStyle()
+        self._make_fonts()
 
         def make_canvas(**options):
-            return tk.Canvas(self, bg=theme.PANEL, highlightthickness=0, **options)
+            return tk.Canvas(self, bg=self.style.bg, highlightthickness=0, **options)
 
+        self.band_height = MIN_BAND_HEIGHT
         self.title_height = MIN_TITLE_HEIGHT
-        self.header_height = BAND_HEIGHT + MIN_TITLE_HEIGHT
+        self.header_height = self.band_height + MIN_TITLE_HEIGHT
         self.corner = make_canvas(height=self.header_height)
         self.top = make_canvas(height=self.header_height, xscrollincrement=20)
-        self.left = make_canvas(yscrollincrement=ROW_HEIGHT)
-        self.body = make_canvas(yscrollincrement=ROW_HEIGHT, xscrollincrement=20)
+        self.left = make_canvas(yscrollincrement=self.style.row_height)
+        self.body = make_canvas(yscrollincrement=self.style.row_height, xscrollincrement=20)
 
         self.vsb = ttk.Scrollbar(self, orient="vertical", command=self._yview)
         self.hsb = ttk.Scrollbar(self, orient="horizontal", command=self._xview)
@@ -85,6 +114,15 @@ class RosterGrid(ttk.Frame):
         for canvas in (self.corner, self.top, self.left, self.body):
             canvas.bind("<MouseWheel>", self._on_wheel)
             canvas.bind("<Shift-MouseWheel>", self._on_shift_wheel)
+
+    def _make_fonts(self):
+        style = self.style
+        family = style.family if style.family in set(tkfont.families(self)) else FAMILY
+        self.f_body = tkfont.Font(root=self, family=family, size=style.body_size, weight="normal")
+        self.f_bold = tkfont.Font(root=self, family=family, size=style.body_size, weight="bold")
+        self.f_title = tkfont.Font(
+            root=self, family=family, size=style.title_size, weight="bold" if style.title_bold else "normal"
+        )
 
     def _yview(self, *args):
         self.body.yview(*args)
@@ -108,52 +146,50 @@ class RosterGrid(ttk.Frame):
 
     def _autofit(self, columns, rows):
         """Size every column to its widest cell or title; widen the first column of a group if its title is wider."""
-        body, title, band = (tkfont.Font(root=self, font=f) for f in (FONT, FONT_TITLE, FONT_BOLD))
-        body_bold = band
+        spacing = self.style.spacing
         for index, column in enumerate(columns):
-            content = max((self._cell_length(body, body_bold, row[index]) for row in rows), default=0)
+            content = max((self._cell_length(row[index]) for row in rows), default=0)
             if column.vertical:
                 column.width = max(44, content + 20)
             else:
-                column.width = max(content, self._spaced_length(title, column.title)) + 24
-        vert = tkfont.Font(root=self, font=FONT_VERT)
-        longest = max((self._vertical_length(vert, c.title) for c in columns if c.vertical), default=0)
+                column.width = max(content, self._spaced_length(column.title.upper(), spacing)) + 24
+        longest = max((self._spaced_length(c.title.upper(), spacing) for c in columns if c.vertical), default=0)
         self.title_height = max(MIN_TITLE_HEIGHT, longest + 20)
-        self.header_height = BAND_HEIGHT + self.title_height
+        self.band_height = max(MIN_BAND_HEIGHT, self.f_bold.metrics("linespace") + 8)
+        self.header_height = self.band_height + self.title_height
         groups = {}
         for column in columns:
             if column.group:
                 groups.setdefault(column.group, []).append(column)
         for name, members in groups.items():
-            shortfall = band.measure(name.upper()) + 24 - sum(c.width for c in members)
+            shortfall = self.f_bold.measure(name.upper()) + 24 - sum(c.width for c in members)
             if shortfall > 0:
                 members[0].width += shortfall
 
-    @staticmethod
-    def _cell_length(font, bold_font, cell):
-        used = bold_font if cell.bold else font
-        return used.measure(cell.text) + cell.spacing * max(len(cell.text) - 1, 0)
+    def _cell_length(self, cell):
+        font = self.f_bold if cell.bold else self.f_body
+        return font.measure(cell.text) + cell.spacing * max(len(cell.text) - 1, 0)
 
-    @staticmethod
-    def _spaced_length(font, title):
-        text = title.upper()
-        return sum(font.measure(ch) for ch in text) + LETTER_SPACING * max(len(text) - 1, 0)
+    def _spaced_length(self, text, spacing):
+        return sum(self.f_title.measure(ch) for ch in text) + spacing * max(len(text) - 1, 0)
 
-    @staticmethod
-    def _vertical_length(font, title):
-        text = title.upper()
-        return sum(font.measure(ch) for ch in text) + LETTER_SPACING * max(len(text) - 1, 0)
-
-    def set_data(self, columns, rows):
-        self._autofit(columns, rows)
+    def set_data(self, columns, rows, style=None):
+        if style is not None:
+            self.style = style
+            self._make_fonts()
+        row_height = self.style.row_height
         for canvas in (self.corner, self.top, self.left, self.body):
             canvas.delete("all")
+            canvas.configure(bg=self.style.bg)
+        self.left.configure(yscrollincrement=row_height)
+        self.body.configure(yscrollincrement=row_height)
+        self._autofit(columns, rows)
 
         frozen = [c for c in columns if c.frozen]
         scrolling = [c for c in columns if not c.frozen]
         frozen_width = sum(c.width for c in frozen)
         scroll_width = sum(c.width for c in scrolling)
-        body_height = len(rows) * ROW_HEIGHT
+        body_height = len(rows) * row_height
 
         self.corner.configure(width=frozen_width, height=self.header_height)
         self.top.configure(height=self.header_height)
@@ -177,8 +213,8 @@ class RosterGrid(ttk.Frame):
                 x_scroll += column.width
 
         for row_index, row in enumerate(rows):
-            y = row_index * ROW_HEIGHT
-            stripe = theme.PANEL if row_index % 2 == 0 else theme.PANEL_ALT
+            y = row_index * row_height
+            stripe = self.style.bg if row_index % 2 == 0 else self.style.stripe
             for col_index, cell in enumerate(row):
                 column = columns[col_index]
                 canvas = self.left if column.frozen else self.body
@@ -187,12 +223,13 @@ class RosterGrid(ttk.Frame):
         if frozen_width:
             # Drawn after the cells so the separator runs the full height of the frozen columns.
             for canvas, height in ((self.corner, self.header_height), (self.left, body_height)):
-                canvas.create_line(frozen_width - 1, 0, frozen_width - 1, height, fill=theme.GOLD, width=2)
+                canvas.create_line(frozen_width - 1, 0, frozen_width - 1, height, fill=self.style.separator, width=2)
 
         self.body.yview_moveto(0)
         self.body.xview_moveto(0)
 
     def _draw_header(self, canvas, columns):
+        style = self.style
         x = 0
         index = 0
         while index < len(columns):
@@ -203,17 +240,19 @@ class RosterGrid(ttk.Frame):
             span_width = sum(c.width for c in span)
             group = columns[index].group
             canvas.create_rectangle(
-                x, 0, x + span_width, BAND_HEIGHT, fill=span[0].bg if group else theme.PANEL, outline=theme.DIVIDER
+                x, 0, x + span_width, self.band_height, fill=span[0].bg if group else style.bg, outline=style.line
             )
             if group:
-                canvas.create_text(x + span_width / 2, BAND_HEIGHT / 2, text=group.upper(), fill=span[0].fg, font=FONT_BOLD)
+                canvas.create_text(
+                    x + span_width / 2, self.band_height / 2, text=group.upper(), fill=span[0].fg, font=self.f_bold
+                )
             x += span_width
             index = span_end + 1
 
         x = 0
         for column in columns:
             canvas.create_rectangle(
-                x, BAND_HEIGHT, x + column.width, self.header_height, fill=column.bg, outline=theme.DIVIDER
+                x, self.band_height, x + column.width, self.header_height, fill=column.bg, outline=style.line
             )
             if column.vertical:
                 self._draw_vertical_title(canvas, x + column.width / 2, column.title, column.title_fg)
@@ -222,41 +261,41 @@ class RosterGrid(ttk.Frame):
             x += column.width
 
     def _draw_spaced_title(self, canvas, cx, title, color):
-        font = tkfont.Font(root=self, font=FONT_TITLE)
         text = title.upper()
-        left = cx - self._spaced_length(font, text) / 2
-        cy = BAND_HEIGHT + self.title_height / 2
+        spacing = self.style.spacing
+        left = cx - self._spaced_length(text, spacing) / 2
+        cy = self.band_height + self.title_height / 2
         for ch in text:
-            width = font.measure(ch)
-            canvas.create_text(left + width / 2, cy, text=ch, fill=color, font=FONT_TITLE)
-            left += width + LETTER_SPACING
+            width = self.f_title.measure(ch)
+            canvas.create_text(left + width / 2, cy, text=ch, fill=color, font=self.f_title)
+            left += width + spacing
 
     def _draw_vertical_title(self, canvas, cx, title, color):
-        font = tkfont.Font(root=self, font=FONT_VERT)
         text = title.upper()
-        center = BAND_HEIGHT + self.title_height / 2
-        y = center + self._vertical_length(font, text) / 2
+        spacing = self.style.spacing
+        center = self.band_height + self.title_height / 2
+        y = center + self._spaced_length(text, spacing) / 2
         for ch in text:
-            width = font.measure(ch)
-            canvas.create_text(cx, y - width / 2, text=ch, angle=90, fill=color, font=FONT_VERT)
-            y -= width + LETTER_SPACING
+            width = self.f_title.measure(ch)
+            canvas.create_text(cx, y - width / 2, text=ch, angle=90, fill=color, font=self.f_title)
+            y -= width + spacing
 
     def _draw_cell(self, canvas, x, y, column, cell, stripe):
-        canvas.create_rectangle(
-            x, y, x + column.width, y + ROW_HEIGHT, fill=cell.bg or stripe, outline=theme.DIVIDER
-        )
+        height = self.style.row_height
+        canvas.create_rectangle(x, y, x + column.width, y + height, fill=cell.bg or stripe, outline=self.style.line)
         if not cell.text:
             return
-        spec = FONT_BOLD if cell.bold else FONT
+        font = self.f_bold if cell.bold else self.f_body
         if cell.spacing:
-            font = tkfont.Font(root=self, font=spec)
-            length = self._cell_length(font, font, cell)
+            length = self._cell_length(cell)
             left = x + (column.width - length) / 2 if column.align == "center" else x + 6
             for ch in cell.text:
                 width = font.measure(ch)
-                canvas.create_text(left + width / 2, y + ROW_HEIGHT / 2, text=ch, fill=cell.fg, font=spec)
+                canvas.create_text(left + width / 2, y + height / 2, text=ch, fill=cell.fg, font=font)
                 left += width + cell.spacing
         elif column.align == "center":
-            canvas.create_text(x + column.width / 2, y + ROW_HEIGHT / 2, text=cell.text, fill=cell.fg, font=spec)
+            canvas.create_text(x + column.width / 2, y + height / 2, text=cell.text, fill=cell.fg, font=font)
+        elif column.align == "e":
+            canvas.create_text(x + column.width - 6, y + height / 2, text=cell.text, fill=cell.fg, font=font, anchor="e")
         else:
-            canvas.create_text(x + 6, y + ROW_HEIGHT / 2, text=cell.text, fill=cell.fg, font=spec, anchor="w")
+            canvas.create_text(x + 6, y + height / 2, text=cell.text, fill=cell.fg, font=font, anchor="w")
