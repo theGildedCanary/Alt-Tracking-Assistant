@@ -12,7 +12,7 @@ The project uses semantic versioning:
 
 ### Added
 
-- Optional Windows companion with a roster grid and a persistent local character database.
+- Optional Windows companion with a roster spreadsheet and a persistent local character database.
 - Local Excel and CSV exports, with optional automatic export after addon data changes.
 - Companion controls for character mains, armor mains, True Main, and tracker visibility, synchronized to the addon on login or reload.
 - Customizable roster formatting, light and dark themes, and saved window placement.
