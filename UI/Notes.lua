@@ -1,21 +1,96 @@
 local _, ATA = ...
 
 local MAX_NOTE_LENGTH = 1000
+local MAX_TODO_LENGTH = 200
 local PANEL_WIDTH = 650
-local INPUT_HEIGHT = 96
+local CONTENT_WIDTH = 610
+local INPUT_HEIGHT = 90
 local ENTRY_GAP = 10
-local CONTENT_WIDTH = 612
 local HEADER_HEIGHT = 22
 local DAY_INDENT = 16
 local NOTE_INDENT = 32
+local TODO_MIN_HEIGHT = 24
+local CHECKBOX_SIZE = 18
+
+local function GetRecord(characterKey)
+    return characterKey and ATA.db and ATA.db.characters[characterKey]
+end
+
+-- To-dos are stored per character as { id, text, done, created }.
+function ATA:GetTodos(characterKey)
+    local record = GetRecord(characterKey)
+    local todos = record and record.todos or {}
+    for _, todo in ipairs(todos) do
+        if todo.done == nil then
+            todo.done = todo.active == false
+            todo.active = nil
+        end
+    end
+    return todos
+end
+
+function ATA:HasPendingTodo(characterKey)
+    for _, todo in ipairs(self:GetTodos(characterKey)) do
+        if not todo.done then
+            return true
+        end
+    end
+    return false
+end
+
+function ATA:AddTodo(characterKey, text)
+    local record = GetRecord(characterKey)
+    if not record then
+        return false, "Scan this character in game before adding to-dos."
+    end
+
+    text = strtrim(text or "")
+    if text == "" then
+        return false, "Enter a to-do first."
+    end
+
+    local now = time()
+    record.todos = record.todos or {}
+    record.todos[#record.todos + 1] = {
+        id = now .. "-" .. math.random(100000, 999999),
+        text = text:sub(1, MAX_TODO_LENGTH),
+        done = false,
+        created = now,
+    }
+    return true
+end
+
+function ATA:ToggleTodo(characterKey, todoId)
+    for _, todo in ipairs(self:GetTodos(characterKey)) do
+        if todo.id == todoId then
+            todo.done = not todo.done
+            return true
+        end
+    end
+    return false
+end
+
+function ATA:DeleteTodo(characterKey, todoId)
+    local record = GetRecord(characterKey)
+    if not (record and record.todos and todoId) then
+        return false
+    end
+    for index, todo in ipairs(record.todos) do
+        if todo.id == todoId then
+            table.remove(record.todos, index)
+            return true
+        end
+    end
+    return false
+end
 
 function ATA:GetNotes(characterKey)
-    local record = characterKey and self.db and self.db.characters[characterKey]
+    local record = GetRecord(characterKey)
     return record and record.notes or {}
 end
 
 function ATA:DeleteNote(characterKey, noteId)
-    local record = characterKey and self.db and self.db.characters[characterKey]
+    local record = GetRecord(characterKey)
     if not (record and record.notes and noteId) then
         return false
     end
@@ -30,7 +105,7 @@ end
 
 -- Notes are stored per character as { id, text, created } so a companion app can merge them by id.
 function ATA:AddNote(characterKey, text)
-    local record = characterKey and self.db and self.db.characters[characterKey]
+    local record = GetRecord(characterKey)
     if not record then
         return false, "Scan this character in game before adding notes."
     end
@@ -53,70 +128,51 @@ function ATA:AddNote(characterKey, text)
     return true
 end
 
+local BOX_BACKDROP = {
+    bgFile = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8",
+    edgeSize = 1,
+    insets = { left = 1, right = 1, top = 1, bottom = 1 },
+}
+
+local function GroupNotes(notes)
+    local sorted = {}
+    for _, note in ipairs(notes) do
+        sorted[#sorted + 1] = note
+    end
+    table.sort(sorted, function(a, b)
+        return (a.created or 0) > (b.created or 0)
+    end)
+
+    local years = {}
+    for _, note in ipairs(sorted) do
+        local created = note.created or 0
+        local yearKey = date("%Y", created)
+        local dayKey = date("%Y-%m-%d", created)
+        local year = years[#years]
+        if not year or year.key ~= yearKey then
+            year = { key = yearKey, days = {}, count = 0 }
+            years[#years + 1] = year
+        end
+        local day = year.days[#year.days]
+        if not day or day.key ~= dayKey then
+            day = { key = dayKey, label = date("%A, %b %d", created), notes = {} }
+            year.days[#year.days + 1] = day
+        end
+        day.notes[#day.notes + 1] = note
+        year.count = year.count + 1
+    end
+    return years
+end
+
 function ATA.CreateNotesPanel(parent, helpers)
     local colors = ATA.UI.theme.colors
     local panel = helpers.CreateCard(parent, PANEL_WIDTH, 1)
-
-    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -12)
-    title:SetText("NOTES")
-    title:SetTextColor(unpack(colors.gold))
-
-    local subtitle = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -3)
-    subtitle:SetTextColor(unpack(colors.mutedText))
-
-    local inputBox = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-    inputBox:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -58)
-    inputBox:SetPoint("RIGHT", panel, "RIGHT", -12, 0)
-    inputBox:SetHeight(INPUT_HEIGHT)
-    inputBox:SetClipsChildren(true)
-    inputBox:EnableMouse(true)
-    inputBox:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
-    inputBox:SetBackdropColor(0.035, 0.045, 0.055, 1)
-    inputBox:SetBackdropBorderColor(unpack(colors.divider))
-
-    local input = CreateFrame("EditBox", nil, inputBox)
-    input:SetPoint("TOPLEFT", inputBox, "TOPLEFT", 8, -8)
-    input:SetPoint("BOTTOMRIGHT", inputBox, "BOTTOMRIGHT", -8, 8)
-    input:SetMultiLine(true)
-    input:SetAutoFocus(false)
-    input:SetFontObject(ChatFontNormal)
-    input:SetTextColor(unpack(colors.text))
-    input:SetMaxLetters(MAX_NOTE_LENGTH)
-    input:SetScript("OnEscapePressed", input.ClearFocus)
-    inputBox:SetScript("OnMouseDown", function()
-        input:SetFocus()
-    end)
-
-    local submitButton = helpers.CreateThemedButton(panel, "Submit", 90, 26)
-    submitButton:SetPoint("TOPRIGHT", inputBox, "BOTTOMRIGHT", 0, -8)
-
-    local status = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    status:SetPoint("RIGHT", submitButton, "LEFT", -10, 0)
-    status:SetPoint("LEFT", panel, "LEFT", 12, 0)
-    status:SetJustifyH("RIGHT")
-
-    local divider = panel:CreateTexture(nil, "ARTWORK")
-    divider:SetTexture("Interface\\Buttons\\WHITE8X8")
-    divider:SetVertexColor(unpack(colors.divider))
-    divider:SetHeight(1)
-    divider:SetPoint("TOPLEFT", inputBox, "BOTTOMLEFT", 0, -42)
-    divider:SetPoint("RIGHT", panel, "RIGHT", -12, 0)
-
-    local historyTitle = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    historyTitle:SetPoint("TOPLEFT", divider, "BOTTOMLEFT", 0, -8)
-    historyTitle:SetText("HISTORY")
-    historyTitle:SetTextColor(unpack(colors.gold))
+    panel.collapsed = {}
 
     local scroll = CreateFrame("ScrollFrame", nil, panel)
-    scroll:SetPoint("TOPLEFT", historyTitle, "BOTTOMLEFT", 0, -8)
-    scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -26, 12)
+    scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -12)
+    scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -28, 12)
     scroll:SetClipsChildren(true)
     scroll:EnableMouseWheel(true)
 
@@ -124,28 +180,19 @@ function ATA.CreateNotesPanel(parent, helpers)
     content:SetSize(CONTENT_WIDTH, 1)
     scroll:SetScrollChild(content)
 
+    -- Scrollbar for the whole page
     local scrollBar = CreateFrame("Frame", nil, panel, "BackdropTemplate")
     scrollBar:SetWidth(10)
-    scrollBar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 4, 0)
-    scrollBar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 4, 0)
-    scrollBar:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
+    scrollBar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -12)
+    scrollBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -10, 12)
+    scrollBar:SetBackdrop(BOX_BACKDROP)
     scrollBar:SetBackdropColor(0.035, 0.045, 0.055, 1)
     scrollBar:SetBackdropBorderColor(unpack(colors.divider))
     scrollBar:Hide()
 
     local thumb = CreateFrame("Button", nil, scrollBar, "BackdropTemplate")
     thumb:SetWidth(8)
-    thumb:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
+    thumb:SetBackdrop(BOX_BACKDROP)
     thumb:SetBackdropColor(unpack(colors.goldDark))
     thumb:SetBackdropBorderColor(unpack(colors.gold))
     thumb:RegisterForDrag("LeftButton")
@@ -189,11 +236,142 @@ function ATA.CreateNotesPanel(parent, helpers)
         self:SetScript("OnUpdate", nil)
     end)
 
+    local function MakeDivider()
+        local line = content:CreateTexture(nil, "ARTWORK")
+        line:SetTexture("Interface\\Buttons\\WHITE8X8")
+        line:SetVertexColor(unpack(colors.divider))
+        line:SetHeight(1)
+        return line
+    end
+
+    local function MakeBox(height)
+        local box = CreateFrame("Frame", nil, content, "BackdropTemplate")
+        box:SetHeight(height)
+        box:SetBackdrop(BOX_BACKDROP)
+        box:SetBackdropColor(0.035, 0.045, 0.055, 1)
+        box:SetBackdropBorderColor(unpack(colors.divider))
+        return box
+    end
+
+    local function Place(frame, y, leftInset, rightInset)
+        frame:ClearAllPoints()
+        frame:SetPoint("TOPLEFT", content, "TOPLEFT", leftInset or 0, -y)
+        frame:SetPoint("TOPRIGHT", content, "TOPRIGHT", -(rightInset or 0), -y)
+    end
+
+    local statusColor = { 1, 0.35, 0.3, 1 }
+
+    -- To-do section
+    local todoTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    todoTitle:SetText("TO-DO")
+    todoTitle:SetTextColor(unpack(colors.gold))
+
+    local subtitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    subtitle:SetPoint("LEFT", todoTitle, "RIGHT", 10, -1)
+    subtitle:SetTextColor(unpack(colors.mutedText))
+
+    local todoAddButton = helpers.CreateThemedButton(content, "Add", 60, 24)
+    local todoInputBox = MakeBox(24)
+    local todoInput = CreateFrame("EditBox", nil, todoInputBox)
+    todoInput:SetPoint("TOPLEFT", todoInputBox, "TOPLEFT", 8, 0)
+    todoInput:SetPoint("BOTTOMRIGHT", todoInputBox, "BOTTOMRIGHT", -8, 0)
+    todoInput:SetAutoFocus(false)
+    todoInput:SetFontObject(ChatFontNormal)
+    todoInput:SetTextColor(unpack(colors.text))
+    todoInput:SetMaxLetters(MAX_TODO_LENGTH)
+    todoInput:SetScript("OnEscapePressed", todoInput.ClearFocus)
+    todoInputBox:EnableMouse(true)
+    todoInputBox:SetScript("OnMouseDown", function()
+        todoInput:SetFocus()
+    end)
+
+    local todoEmpty = content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    todoEmpty:SetText("No to-dos yet.")
+
+    local todoRows = {}
+
+    local function GetTodoRow(index)
+        local row = todoRows[index]
+        if row then
+            return row
+        end
+
+        row = CreateFrame("Frame", nil, content)
+
+        row.checkbox = CreateFrame("Button", nil, row, "BackdropTemplate")
+        row.checkbox:SetSize(CHECKBOX_SIZE, CHECKBOX_SIZE)
+        row.checkbox:SetPoint("TOPLEFT", row, "TOPLEFT", 2, -3)
+        row.checkbox:SetBackdrop(BOX_BACKDROP)
+        row.checkbox:SetBackdropColor(0.035, 0.045, 0.055, 1)
+        row.checkbox:SetBackdropBorderColor(unpack(colors.goldDark))
+        row.checkbox.check = row.checkbox:CreateTexture(nil, "OVERLAY")
+        row.checkbox.check:SetPoint("CENTER", 0, 0)
+        row.checkbox.check:SetSize(CHECKBOX_SIZE + 4, CHECKBOX_SIZE + 4)
+        row.checkbox.check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        row.checkbox.check:SetVertexColor(unpack(colors.gold))
+        row.checkbox:SetScript("OnEnter", function(self)
+            self:SetBackdropBorderColor(unpack(colors.gold))
+        end)
+        row.checkbox:SetScript("OnLeave", function(self)
+            self:SetBackdropBorderColor(unpack(colors.goldDark))
+        end)
+        row.checkbox:SetScript("OnClick", function(self)
+            ATA:ToggleTodo(panel.characterKey, self.todoId)
+            panel:Render()
+        end)
+
+        row.deleteButton = helpers.CreateThemedButton(row, "X", 20, 20)
+        row.deleteButton:SetPoint("TOPRIGHT", row, "TOPRIGHT", -2, -2)
+        row.deleteButton:SetScript("OnClick", function(self)
+            ATA:DeleteTodo(panel.characterKey, self.todoId)
+            panel:Render()
+        end)
+
+        row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        row.text:SetPoint("TOPLEFT", row.checkbox, "TOPRIGHT", 8, -2)
+        row.text:SetWidth(CONTENT_WIDTH - CHECKBOX_SIZE - 8 - 2 - 34)
+        row.text:SetJustifyH("LEFT")
+        row.text:SetJustifyV("TOP")
+        row.text:SetWordWrap(true)
+
+        todoRows[index] = row
+        return row
+    end
+
+    -- Notes input section
+    local dividerOne = MakeDivider()
+    local notesTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    notesTitle:SetText("NOTES")
+    notesTitle:SetTextColor(unpack(colors.gold))
+
+    local inputBox = MakeBox(INPUT_HEIGHT)
+    inputBox:SetClipsChildren(true)
+    inputBox:EnableMouse(true)
+    local input = CreateFrame("EditBox", nil, inputBox)
+    input:SetPoint("TOPLEFT", inputBox, "TOPLEFT", 8, -8)
+    input:SetPoint("BOTTOMRIGHT", inputBox, "BOTTOMRIGHT", -8, 8)
+    input:SetMultiLine(true)
+    input:SetAutoFocus(false)
+    input:SetFontObject(ChatFontNormal)
+    input:SetTextColor(unpack(colors.text))
+    input:SetMaxLetters(MAX_NOTE_LENGTH)
+    input:SetScript("OnEscapePressed", input.ClearFocus)
+    inputBox:SetScript("OnMouseDown", function()
+        input:SetFocus()
+    end)
+
+    local submitButton = helpers.CreateThemedButton(content, "Submit", 90, 26)
+    local status = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    status:SetJustifyH("LEFT")
+
+    local dividerTwo = MakeDivider()
+    local historyTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    historyTitle:SetText("HISTORY")
+    historyTitle:SetTextColor(unpack(colors.gold))
+
     local emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-    emptyText:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
     emptyText:SetText("No notes yet.")
 
-    panel.collapsed = {}
     local yearRows, dayRows, noteRows = {}, {}, {}
 
     local function SetStatus(text, color)
@@ -251,54 +429,82 @@ function ATA.CreateNotesPanel(parent, helpers)
         return row
     end
 
-    local function GroupNotes(notes)
-        local sorted = {}
-        for _, note in ipairs(notes) do
-            sorted[#sorted + 1] = note
-        end
-        table.sort(sorted, function(a, b)
-            return (a.created or 0) > (b.created or 0)
-        end)
-
-        local years = {}
-        for _, note in ipairs(sorted) do
-            local created = note.created or 0
-            local yearKey = date("%Y", created)
-            local dayKey = date("%Y-%m-%d", created)
-            local year = years[#years]
-            if not year or year.key ~= yearKey then
-                year = { key = yearKey, days = {}, count = 0 }
-                years[#years + 1] = year
-            end
-            local day = year.days[#year.days]
-            if not day or day.key ~= dayKey then
-                day = { key = dayKey, label = date("%A, %b %d", created), notes = {} }
-                year.days[#year.days + 1] = day
-            end
-            day.notes[#day.notes + 1] = note
-            year.count = year.count + 1
-        end
-        return years
-    end
-
+    -- Lays out the whole page top to bottom so each section grows or shrinks with its content.
     function panel:Render()
+        local y = 0
+
+        todoTitle:ClearAllPoints()
+        todoTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+        y = y + 28
+
+        todoAddButton:ClearAllPoints()
+        todoAddButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -y)
+        Place(todoInputBox, y, 0, 66)
+        y = y + 32
+
+        local todos = ATA:GetTodos(self.characterKey)
+        todoEmpty:ClearAllPoints()
+        todoEmpty:SetPoint("TOPLEFT", content, "TOPLEFT", 2, -y)
+        todoEmpty:SetShown(#todos == 0)
+        if #todos == 0 then
+            y = y + 22
+        end
+        for index, todo in ipairs(todos) do
+            local row = GetTodoRow(index)
+            row.checkbox.todoId = todo.id
+            row.checkbox.check:SetShown(todo.done)
+            row.deleteButton.todoId = todo.id
+            row.text:SetText(todo.text or "")
+            row.text:SetTextColor(unpack(todo.done and colors.mutedText or colors.text))
+            local height = math.max(TODO_MIN_HEIGHT, row.text:GetStringHeight() + 8)
+            row:SetHeight(height)
+            Place(row, y)
+            row:Show()
+            y = y + height + 2
+        end
+        for index = #todos + 1, #todoRows do
+            todoRows[index]:Hide()
+        end
+        y = y + 8
+
+        Place(dividerOne, y)
+        y = y + 10
+        notesTitle:ClearAllPoints()
+        notesTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+        y = y + 28
+        Place(inputBox, y)
+        y = y + INPUT_HEIGHT + 8
+        submitButton:ClearAllPoints()
+        submitButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -y)
+        status:ClearAllPoints()
+        status:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(y + 7))
+        status:SetPoint("RIGHT", submitButton, "LEFT", -10, 0)
+        y = y + 36
+
+        Place(dividerTwo, y)
+        y = y + 10
+        historyTitle:ClearAllPoints()
+        historyTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+        y = y + 26
+
         local notes = ATA:GetNotes(self.characterKey)
+        emptyText:ClearAllPoints()
+        emptyText:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
         emptyText:SetShown(#notes == 0)
+        if #notes == 0 then
+            y = y + 22
+        end
 
         local usedYears, usedDays, usedNotes = 0, 0, 0
-        local offset = 0
-
         for _, year in ipairs(GroupNotes(notes)) do
             usedYears = usedYears + 1
             local yearKey = "y" .. year.key
             local yearRow = GetHeaderRow(yearRows, usedYears, 0, colors.gold)
             yearRow.groupKey = yearKey
             yearRow.label:SetText((self.collapsed[yearKey] and "[+] " or "[-] ") .. year.key .. "  (" .. year.count .. ")")
-            yearRow:ClearAllPoints()
-            yearRow:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -offset)
-            yearRow:SetPoint("RIGHT", content, "RIGHT")
+            Place(yearRow, y)
             yearRow:Show()
-            offset = offset + HEADER_HEIGHT + 4
+            y = y + HEADER_HEIGHT + 4
 
             if not self.collapsed[yearKey] then
                 for _, day in ipairs(year.days) do
@@ -307,11 +513,9 @@ function ATA.CreateNotesPanel(parent, helpers)
                     local dayRow = GetHeaderRow(dayRows, usedDays, DAY_INDENT, colors.text)
                     dayRow.groupKey = dayKey
                     dayRow.label:SetText((self.collapsed[dayKey] and "[+] " or "[-] ") .. day.label .. "  (" .. #day.notes .. ")")
-                    dayRow:ClearAllPoints()
-                    dayRow:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -offset)
-                    dayRow:SetPoint("RIGHT", content, "RIGHT")
+                    Place(dayRow, y)
                     dayRow:Show()
-                    offset = offset + HEADER_HEIGHT + 4
+                    y = y + HEADER_HEIGHT + 4
 
                     if not self.collapsed[dayKey] then
                         for _, note in ipairs(day.notes) do
@@ -321,11 +525,10 @@ function ATA.CreateNotesPanel(parent, helpers)
                             row.bodyText:SetText(note.text or "")
                             row.deleteButton.noteId = note.id
                             local height = row.timeText:GetStringHeight() + 2 + row.bodyText:GetStringHeight()
-                            row:SetSize(CONTENT_WIDTH, math.max(height, 20))
-                            row:ClearAllPoints()
-                            row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -offset)
+                            row:SetHeight(math.max(height, 22))
+                            Place(row, y)
                             row:Show()
-                            offset = offset + row:GetHeight() + ENTRY_GAP
+                            y = y + row:GetHeight() + ENTRY_GAP
                         end
                     end
                 end
@@ -342,7 +545,7 @@ function ATA.CreateNotesPanel(parent, helpers)
             noteRows[index]:Hide()
         end
 
-        content:SetHeight(math.max(1, offset))
+        content:SetHeight(y + 8)
         local range = scroll:GetVerticalScrollRange()
         if scroll:GetVerticalScroll() > range then
             scroll:SetVerticalScroll(range)
@@ -356,18 +559,34 @@ function ATA.CreateNotesPanel(parent, helpers)
             self.collapsed = {}
             input:SetText("")
             input:ClearFocus()
+            todoInput:SetText("")
+            todoInput:ClearFocus()
             SetStatus("")
             scroll:SetVerticalScroll(0)
         end
 
         subtitle:SetText(characterName and string.upper(characterName) or "")
-        submitButton:SetEnabled(hasRecord and true or false)
-        submitButton:SetAlpha(hasRecord and 1 or 0.4)
+        for _, button in ipairs({ submitButton, todoAddButton }) do
+            button:SetEnabled(hasRecord and true or false)
+            button:SetAlpha(hasRecord and 1 or 0.4)
+        end
         if not hasRecord then
-            SetStatus("Scan this character in game before adding notes.")
+            SetStatus("Scan this character in game before adding notes or to-dos.")
         end
         self:Render()
     end
+
+    local function AddTodoFromInput()
+        local success, message = ATA:AddTodo(panel.characterKey, todoInput:GetText())
+        if not success then
+            SetStatus(message, statusColor)
+            return
+        end
+        todoInput:SetText("")
+        panel:Render()
+    end
+    todoAddButton:SetScript("OnClick", AddTodoFromInput)
+    todoInput:SetScript("OnEnterPressed", AddTodoFromInput)
 
     StaticPopupDialogs["ATA_DELETE_NOTE"] = {
         text = "Delete this note? This cannot be undone.",
@@ -383,17 +602,17 @@ function ATA.CreateNotesPanel(parent, helpers)
             end
         end,
     }
+
     submitButton:SetScript("OnClick", function()
         local success, message = ATA:AddNote(panel.characterKey, input:GetText())
         if not success then
-            SetStatus(message, { 1, 0.35, 0.3, 1 })
+            SetStatus(message, statusColor)
             return
         end
 
         input:SetText("")
         input:ClearFocus()
-        local record = ATA.db.characters[panel.characterKey]
-        panel:Refresh(panel.characterKey, record and record.name, true)
+        panel:Render()
         SetStatus("Note saved.", colors.completed)
     end)
 
