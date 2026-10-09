@@ -19,3 +19,16 @@ build/
 
 # Packaged releases
 *.zip
+
+# Companion app
+Companion/build/
+Companion/dist/
+Companion/*.spec
+Companion/__pycache__/
+
+# Companion app
+Companion/client_secret.json
+Companion/build/
+Companion/dist/
+Companion/*.spec
+Companion/__pycache__/
