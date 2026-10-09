@@ -104,19 +104,63 @@ class FormatPanel(ttk.Frame):
         box._var = var
         return box
 
+    def _main_marker_controls(self, parent):
+        frame = ttk.Frame(parent)
+        self._entry(frame, ("mainMark",)).pack(side="left")
+        self._check(frame, "Italicize", ("italicMainRows",)).pack(
+            side="left", padx=(8, 0)
+        )
+        return frame
+
     def _color(self, parent, path):
+        frame = ttk.Frame(parent)
         current = self._get(path)
-        button = tk.Button(parent, text=current.upper(), width=9, bg=current, fg=_contrast(current), relief="groove")
+        value = tk.StringVar(value=current.upper())
+
+        entry = ttk.Entry(frame, textvariable=value, width=9)
+        entry.pack(side="left")
+
+        button = tk.Button(
+            frame,
+            text="Pick",
+            width=4,
+            bg=current,
+            fg=_contrast(current),
+            activebackground=current,
+            relief="groove",
+        )
+        button.pack(side="left", padx=(4, 0))
+
+        def apply_color(color):
+            color = color.lower()
+            value.set(color.upper())
+            button.configure(
+                bg=color,
+                fg=_contrast(color),
+                activebackground=color,
+            )
+            self._set(path, color)
+
+        def commit(event=None):
+            color = value.get().strip()
+            if rf.HEX.fullmatch(color):
+                apply_color(color)
+            else:
+                value.set(self._get(path).upper())
 
         def pick():
-            _, chosen = colorchooser.askcolor(color=self._get(path), parent=self, title="Choose a color")
+            _, chosen = colorchooser.askcolor(
+                color=self._get(path),
+                parent=self,
+                title="Choose a color",
+            )
             if chosen:
-                chosen = chosen.lower()
-                button.configure(text=chosen.upper(), bg=chosen, fg=_contrast(chosen), activebackground=chosen)
-                self._set(path, chosen)
+                apply_color(chosen)
 
-        button.configure(command=pick, activebackground=current)
-        return button
+        entry.bind("<Return>", commit)
+        entry.bind("<FocusOut>", commit)
+        button.configure(command=pick)
+        return frame
 
     def _section(self, title):
         box = ttk.LabelFrame(self, text=title, padding=10)
@@ -176,7 +220,7 @@ class FormatPanel(ttk.Frame):
             [
                 ("Row height (px)", lambda p: self._number(p, ("rowHeight",), 16, 60)),
                 ("Completed tracker mark", lambda p: self._entry(p, ("mark",))),
-                ("Main character marker", lambda p: self._entry(p, ("mainMark",))),
+                ("Main character marker", lambda p: self._main_marker_controls(p)),
             ],
         )
         flags = ttk.Frame(box)

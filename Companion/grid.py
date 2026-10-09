@@ -79,6 +79,7 @@ class Cell:
     bg: str = ""
     bold: bool = True
     spacing: int = 0
+    italic: bool = False
 
 
 class RosterGrid(ttk.Frame):
@@ -88,6 +89,8 @@ class RosterGrid(ttk.Frame):
         self.rowconfigure(1, weight=1)
         self.style = GridStyle()
         self._make_fonts()
+        self._visible_data = None
+        self._redraw_job = None
 
         def make_canvas(**options):
             return tk.Canvas(self, bg=self.style.bg, highlightthickness=0, **options)
@@ -111,6 +114,9 @@ class RosterGrid(ttk.Frame):
         self.vsb.grid(row=1, column=2, sticky="ns")
         self.hsb.grid(row=2, column=1, sticky="ew")
 
+        self.body.bind("<Configure>", self._schedule_redraw)
+        self.left.bind("<Configure>", self._schedule_redraw)
+
         for canvas in (self.corner, self.top, self.left, self.body):
             canvas.bind("<MouseWheel>", self._on_wheel)
             canvas.bind("<Shift-MouseWheel>", self._on_shift_wheel)
@@ -120,6 +126,12 @@ class RosterGrid(ttk.Frame):
         family = style.family if style.family in set(tkfont.families(self)) else FAMILY
         self.f_body = tkfont.Font(root=self, family=family, size=style.body_size, weight="normal")
         self.f_bold = tkfont.Font(root=self, family=family, size=style.body_size, weight="bold")
+        self.f_italic = tkfont.Font(
+            root=self, family=family, size=style.body_size, weight="normal", slant="italic"
+        )
+        self.f_bold_italic = tkfont.Font(
+            root=self, family=family, size=style.body_size, weight="bold", slant="italic"
+        )
         self.f_title = tkfont.Font(
             root=self, family=family, size=style.title_size, weight="bold" if style.title_bold else "normal"
         )
@@ -133,10 +145,12 @@ class RosterGrid(ttk.Frame):
     def _on_yscroll(self, first, last):
         self.vsb.set(first, last)
         self.left.yview_moveto(first)
+        self._schedule_redraw()
 
     def _on_xscroll(self, first, last):
         self.hsb.set(first, last)
         self.top.xview_moveto(first)
+        self._schedule_redraw()
 
     def _on_wheel(self, event):
         self.body.yview_scroll(-3 * (event.delta // 120 or (1 if event.delta > 0 else -1)), "units")
@@ -167,7 +181,13 @@ class RosterGrid(ttk.Frame):
                 members[0].width += shortfall
 
     def _cell_length(self, cell):
-        font = self.f_bold if cell.bold else self.f_body
+        if cell.italic:
+            font = self.f_bold_italic if cell.bold else self.f_italic
+        else:
+            if cell.italic:
+                font = self.f_bold_italic if cell.bold else self.f_italic
+            else:
+                font = self.f_bold if cell.bold else self.f_body
         return font.measure(cell.text) + cell.spacing * max(len(cell.text) - 1, 0)
 
     def _spaced_length(self, text, spacing):
@@ -212,21 +232,73 @@ class RosterGrid(ttk.Frame):
                 offsets[index] = x_scroll
                 x_scroll += column.width
 
-        for row_index, row in enumerate(rows):
-            y = row_index * row_height
-            stripe = self.style.bg if row_index % 2 == 0 else self.style.stripe
-            for col_index, cell in enumerate(row):
-                column = columns[col_index]
-                canvas = self.left if column.frozen else self.body
-                self._draw_cell(canvas, offsets[col_index], y, column, cell, stripe)
+        self._visible_data = (columns, rows, offsets, frozen_width)
 
         if frozen_width:
-            # Drawn after the cells so the separator runs the full height of the frozen columns.
-            for canvas, height in ((self.corner, self.header_height), (self.left, body_height)):
-                canvas.create_line(frozen_width - 1, 0, frozen_width - 1, height, fill=self.style.separator, width=2)
+            self.corner.create_line(
+                frozen_width - 1, 0,
+                frozen_width - 1, self.header_height,
+                fill=self.style.separator,
+                width=2
+            )
 
         self.body.yview_moveto(0)
         self.body.xview_moveto(0)
+        self._schedule_redraw()
+
+    def _schedule_redraw(self, event=None):
+        if self._redraw_job is None:
+            self._redraw_job = self.after(30, self._draw_visible)
+
+    def _draw_visible(self):
+        self._redraw_job = None
+        if self._visible_data is None:
+            return
+
+        columns, rows, offsets, frozen_width = self._visible_data
+        row_height = self.style.row_height
+
+        # Keep the full scroll regions, but draw only visible cells.
+        for canvas in (self.left, self.body):
+            canvas.delete("all")
+
+        top = self.body.canvasy(0)
+        bottom = top + self.body.winfo_height()
+
+        first_row = max(0, int(top // row_height) - 1)
+        last_row = min(len(rows), int(bottom // row_height) + 2)
+
+        visible_columns = []
+        for col_index, column in enumerate(columns):
+            canvas = self.left if column.frozen else self.body
+            left = canvas.canvasx(0)
+            right = left + canvas.winfo_width()
+            x = offsets[col_index]
+
+            if x + column.width >= left and x <= right:
+                visible_columns.append((col_index, column, canvas, x))
+
+        for row_index in range(first_row, last_row):
+            row = rows[row_index]
+            y = row_index * row_height
+            stripe = (
+                self.style.bg
+                if row_index % 2 == 0
+                else self.style.stripe
+            )
+
+            for col_index, column, canvas, x in visible_columns:
+                self._draw_cell(
+                    canvas, x, y, column, row[col_index], stripe
+                )
+
+        if frozen_width:
+            self.left.create_line(
+                frozen_width - 1, first_row * row_height,
+                frozen_width - 1, last_row * row_height,
+                fill=self.style.separator,
+                width=2
+            )
 
     def _draw_header(self, canvas, columns):
         style = self.style
@@ -240,7 +312,7 @@ class RosterGrid(ttk.Frame):
             span_width = sum(c.width for c in span)
             group = columns[index].group
             canvas.create_rectangle(
-                x, 0, x + span_width, self.band_height, fill=span[0].bg if group else style.bg, outline=style.line
+                x, 0, x + span_width, self.band_height, fill=span[0].bg, outline=style.line
             )
             if group:
                 canvas.create_text(
@@ -285,7 +357,10 @@ class RosterGrid(ttk.Frame):
         canvas.create_rectangle(x, y, x + column.width, y + height, fill=cell.bg or stripe, outline=self.style.line)
         if not cell.text:
             return
-        font = self.f_bold if cell.bold else self.f_body
+        if cell.italic:
+            font = self.f_bold_italic if cell.bold else self.f_italic
+        else:
+            font = self.f_bold if cell.bold else self.f_body
         if cell.spacing:
             length = self._cell_length(cell)
             left = x + (column.width - length) / 2 if column.align == "center" else x + 6

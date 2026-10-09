@@ -34,7 +34,10 @@ PAGES = ("Main Selection", "Tracking", "Formatting")
 
 
 class SettingsTab(ttk.Frame):
-    def __init__(self, parent, on_save, on_revert, on_format_change, fmt):
+    def __init__(
+            self, parent, on_save, on_revert, on_format_change, fmt,
+            on_theme_change, ui_theme,
+    ):
         super().__init__(parent)
         self.on_save = on_save
         self.on_revert = on_revert
@@ -69,6 +72,24 @@ class SettingsTab(ttk.Frame):
                 nav, text=name, value=name, variable=self.page_var, style="Toolbutton", width=16,
                 command=self._show_page,
             ).pack(fill="x", pady=2)
+
+        ttk.Separator(nav).pack(fill="x", pady=(16, 8))
+        ttk.Label(nav, text="Appearance").pack(anchor="w")
+
+        self.ui_theme_var = tk.StringVar(value=ui_theme)
+        theme_picker = ttk.Combobox(
+            nav,
+            textvariable=self.ui_theme_var,
+            values=("Light Mode", "Dark Mode"),
+            state="readonly",
+            width=14,
+        )
+        theme_picker.pack(fill="x", pady=(4, 0))
+        theme_picker.bind(
+            "<<ComboboxSelected>>",
+            lambda _: on_theme_change(self.ui_theme_var.get()),
+        )
+        
         self._show_page()
 
     def _show_page(self):
@@ -80,6 +101,11 @@ class SettingsTab(ttk.Frame):
             self.bar.pack_forget()
         else:
             self.bar.pack(fill="x", before=self.holder)
+
+        self.update_idletasks()
+        canvas = self.pages[ name ].canvas
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        canvas.yview_moveto(0)
 
     def load(self, characters, settings, pending):
         """Show settings from the addon. Unsaved edits are kept when new data arrives."""

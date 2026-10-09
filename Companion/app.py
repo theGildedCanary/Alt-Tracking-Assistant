@@ -14,6 +14,7 @@ import settings_sync
 import gsheets
 import roster_format
 import theme
+import window_position
 from layout import IGNORED, LAYOUT
 from lua_parser import LuaParseError, load_saved_variables
 
@@ -369,6 +370,7 @@ def build_roster_grid(characters, fmt):
         bold = fmt["font"]["bold"] or (fmt["boldMainRows"] and record.get("isMain"))
         for cell in row:
             cell.bold = bool(bold)
+            cell.italic = bool(fmt["italicMainRows"] and record.get("isMain"))
 
     return columns, rows
 
@@ -459,6 +461,8 @@ def run_gui():
     except tk.TclError:
         pass
     root.geometry("1280x760")
+    ui_theme_var = tk.StringVar(value=config.get("ui_theme", "Light Mode"))
+    theme.apply_ui_theme(root, ui_theme_var.get())
 
     import grid as grid_module
     from tkinter import font as tkfont
@@ -493,9 +497,30 @@ def run_gui():
         save_format(format_state["fmt"])
         render_roster()
 
+    def change_ui_theme(mode):
+        ui_theme_var.set(mode)
+        theme.apply_ui_theme(root, mode)
+
+        colors = theme.UI_THEMES[mode]
+        for page in settings_tab.pages.values():
+            page.canvas.configure(background=colors["background"])
+
+        persist()
+    
     settings_tab = SettingsTab(
-        notebook, save_and_reload, lambda: reload_roster(), change_format, format_state["fmt"]
+        notebook,
+        save_and_reload,
+        lambda: reload_roster(),
+        change_format,
+        format_state["fmt"],
+        change_ui_theme,
+        ui_theme_var.get(),
     )
+
+    for page in settings_tab.pages.values():
+        page.canvas.configure(
+            background=theme.UI_THEMES[ui_theme_var.get()]["background"]
+        )
     notebook.add(settings_tab, text="Settings")
     frame = ttk.Frame(notebook, padding=12)
     notebook.add(frame, text="Export")
@@ -509,6 +534,8 @@ def run_gui():
                 "mode": mode_var.get(),
                 "sheet_url": url_var.get(),
                 "auto_export": auto_var.get(),
+                "ui_theme": ui_theme_var.get(),
+                "window_position": config.get("window_position"),
             }
         )
 
@@ -696,6 +723,22 @@ def run_gui():
             last_seen.clear()
             last_seen.update(current)
         root.after(5000, poll)
+
+    def close_app():
+        saved_position = window_position.capture(root)
+        if saved_position is not None:
+            config["window_position"] = saved_position
+
+        try:
+            persist()
+        finally:
+            root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", close_app)
+
+    # Finish creating the native window before restoring its placement.
+    root.update_idletasks()
+    window_position.restore(root, config.get("window_position"))
 
     poll()
     root.mainloop()

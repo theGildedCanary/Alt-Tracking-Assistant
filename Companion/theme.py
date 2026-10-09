@@ -63,3 +63,112 @@ EXPANSION_ACCENTS = {
     "theWarWithin": _hex(248 / 255, 149 / 255, 4 / 255),
     "midnight": _hex(236 / 255, 143 / 255, 248 / 255),
 }
+
+# Settings UI Dark and Light modes.
+UI_THEMES = {
+    "Light Mode": {
+        "background": "#f2f2f2",
+        "text": "#202020",
+        "control": "#ffffff",
+        "hover": "#e2e8f0",
+        "selected": "#cce4ff",
+        "border": "#b8b8b8",
+        "disabled": "#777777",
+    },
+    "Dark Mode": {
+        "background": "#11161c",
+        "text": "#ebeffa",
+        "control": "#202a35",
+        "hover": "#2c3948",
+        "selected": "#345577",
+        "border": "#455766",
+        "disabled": "#89939f",
+    },
+}
+
+def apply_ui_theme(root, mode):
+    from tkinter import ttk
+
+    colors = UI_THEMES.get(mode, UI_THEMES["Light Mode"])
+    style = ttk.Style(root)
+
+    # "clam" lets us control colors consistently on Windows.
+    if style.theme_use() != "clam":
+        style.theme_use("clam")
+
+    root.configure(background=colors["background"])
+
+    style.configure(
+        ".",
+        background=colors["background"],
+        foreground=colors["text"],
+    )
+
+    style.configure(
+        "TLabel",
+        background=colors["background"],
+        foreground=colors["text"],
+    )
+
+    style.configure(
+        "TLabelframe",
+        background=colors["background"],
+        foreground=colors["text"],
+    )
+
+    style.configure(
+        "TLabelframe.Label",
+        background=colors["background"],
+        foreground=colors["text"],
+    )
+
+    for widget_style in ("TButton", "Toolbutton", "TNotebook.Tab"):
+        style.configure(
+            widget_style,
+            background=colors["control"],
+            foreground=colors["text"],
+        )
+        style.map(
+            widget_style,
+            background=[
+                ("selected", colors["selected"]),
+                ("active", colors["hover"]),
+            ],
+            foreground=[("disabled", colors["disabled"])],
+        )
+
+    for widget_style in ("TCheckbutton", "TRadiobutton"):
+        style.map(
+            widget_style,
+            background=[("active", colors["hover"])],
+            foreground=[("disabled", colors["disabled"])],
+            indicatorbackground=[
+                ("selected", colors["selected"]),
+                ("!selected", colors["control"]),
+            ],
+        )
+
+    for widget_style in ("TEntry", "TCombobox", "TSpinbox"):
+        style.configure(
+            widget_style,
+            fieldbackground=colors["control"],
+            foreground=colors["text"],
+            insertcolor=colors["text"],
+            arrowcolor=colors["text"],
+        )
+        style.map(
+            widget_style,
+            fieldbackground=[("readonly", colors["control"])],
+            foreground=[
+                ("disabled", colors["disabled"]),
+                ("readonly", colors["text"]),
+            ],
+        )
+
+    style.configure(
+        "TScrollbar",
+        background=colors["control"],
+        troughcolor=colors["background"],
+        arrowcolor=colors["text"],
+    )
+    style.configure("TSeparator", background=colors["border"])

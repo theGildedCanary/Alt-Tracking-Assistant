@@ -27,6 +27,7 @@ DEFAULTS = {
     "rowHeight": 24,
     "stripes": True,
     "boldMainRows": True,
+    "italicMainRows": True,
     "trackerTitlesVertical": True,
     "classBackground": True,
     "mark": "X",
@@ -37,7 +38,7 @@ DEFAULTS = {
         "stripe": theme.PANEL_ALT,
         "gridLine": theme.DIVIDER,
         "separator": theme.GOLD,
-        "headerBg": theme.PANEL_ALT,
+        "headerBg": "#232d38",
         "baseTitle": theme.GOLD,
         "trackerTitle": "#ffffff",
         "mainName": theme.GOLD,
@@ -94,7 +95,7 @@ def normalize(raw):
     font["titleBold"] = _bool(raw_font.get("titleBold"), font["titleBold"])
 
     fmt["rowHeight"] = _int(raw.get("rowHeight"), fmt["rowHeight"], 16, 60)
-    for key in ("stripes", "boldMainRows", "trackerTitlesVertical", "classBackground"):
+    for key in ("stripes", "boldMainRows", "italicMainRows", "trackerTitlesVertical", "classBackground"):
         fmt[key] = _bool(raw.get(key), fmt[key])
     fmt["mark"] = _text(raw.get("mark"), fmt["mark"], 3)
     fmt["mainMark"] = _text(raw.get("mainMark"), fmt["mainMark"], 3)
