@@ -82,11 +82,15 @@ Download from the GitHub Releases page:
 
 ### Optional Windows companion
 
-Download `AltTrackingAssistantCompanion-v2.0.0-Windows.zip` from the same release and extract its contents into `Interface/AddOns/`. The executable goes directly inside your existing `AltTrackingAssistant` folder. Launch `AltTrackingAssistantCompanion.exe` to view the roster, configure mains and tracker visibility, customize formatting, and export local `.xlsx` or `.csv` files. No sign-in is required.
+The Windows companion is included in `AltTrackingAssistant-v2.0.0.zip`. After extracting the addon, launch `AltTrackingAssistantCompanion.exe` from the main `AltTrackingAssistant` folder.
 
-WoW writes updated character data when you log out or use `/reload`. Settings edited in the companion apply in game on the next login or `/reload`. The companion stores its database and preferences in `%APPDATA%\AltTrackingAssistantCompanion`; installing an update preserves those files.
+Use the companion to view your roster, configure mains and tracker visibility, customize formatting, and export local `.xlsx` or `.csv` files. No sign-in is required. The addon works without running the companion.
 
-See [the companion instructions](Companion/README.md) for details.
+WoW writes updated character data when you log out or use `/reload`. Settings edited in the companion apply in game on the next login or `/reload`.
+
+The companion stores its database and preferences in `%APPDATA%\AltTrackingAssistantCompanion`; installing an update preserves those files.
+
+See `Companion-README.md` in the release download, or [the companion instructions](Companion/README.md) in this repository, for details.
 
 ## Repository Structure
 
@@ -136,10 +140,9 @@ The release workflow verifies that the tag and TOC versions match, validates the
 
 ```text
 AltTrackingAssistant-v2.0.0.zip
-AltTrackingAssistantCompanion-v2.0.0-Windows.zip
 ```
 
-Both ZIPs contain an `AltTrackingAssistant` folder ready to place directly in `Interface/AddOns`. The companion is built on Windows and does not include personal settings or Google credentials.
+The ZIP contains an `AltTrackingAssistant` folder ready to place directly in `Interface/AddOns`. It includes the addon and Windows companion executable together. GitHub builds the companion on Windows and packages a neutral settings sync file without personal settings or Google credentials.
 
 ## Contributions
 
