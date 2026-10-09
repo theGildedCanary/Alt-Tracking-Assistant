@@ -14,6 +14,7 @@ required_paths=(
   "Features"
   "UI"
   "Media"
+  "scripts/AppSync.default.lua"
 )
 
 for path in "${required_paths[@]}"; do
@@ -54,6 +55,11 @@ while IFS= read -r line || [ -n "$line" ]; do
 
   file_path="${line//\\//}"
 
+  # AppSync.lua contains generated local settings and is not tracked in Git.
+  if [ "$file_path" = "AppSync.lua" ] && [ ! -f "$file_path" ]; then
+    file_path="scripts/AppSync.default.lua"
+  fi
+
   if [ ! -f "$file_path" ]; then
     echo "ERROR: TOC references a missing file: $line"
     missing_reference=1
@@ -78,6 +84,10 @@ echo "Checking Lua syntax with $LUAC..."
 while IFS= read -r -d '' file; do
   echo "  $file"
   "$LUAC" -p "$file"
-done < <(find Core Features UI -type f -name '*.lua' -print0)
+done < <(find Core Features UI scripts -type f -name '*.lua' -print0)
+
+if [ -f AppSync.lua ]; then
+  "$LUAC" -p AppSync.lua
+fi
 
 echo "Validation passed."

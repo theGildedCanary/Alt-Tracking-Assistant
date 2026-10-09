@@ -21,14 +21,11 @@ build/
 *.zip
 
 # Companion app
+/AppSync.lua
+/AltTrackingAssistantCompanion.exe
 Companion/build/
 Companion/dist/
 Companion/*.spec
 Companion/__pycache__/
 
-# Companion app
 Companion/client_secret.json
-Companion/build/
-Companion/dist/
-Companion/*.spec
-Companion/__pycache__/

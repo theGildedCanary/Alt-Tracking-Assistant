@@ -23,3 +23,6 @@ jobs:
 
       - name: Validate addon
         run: bash scripts/validate-addon.sh
+
+      - name: Check companion Python syntax
+        run: python3 -c "import ast, pathlib; [ast.parse(p.read_text(encoding='utf-8'), filename=str(p)) for p in pathlib.Path('Companion').glob('*.py')]"

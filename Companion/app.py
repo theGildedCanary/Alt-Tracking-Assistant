@@ -11,7 +11,6 @@ from pathlib import Path
 
 import db
 import settings_sync
-import gsheets
 import roster_format
 import theme
 import window_position
@@ -396,6 +395,8 @@ def build_table(characters):
 
 def write_spreadsheet(path, header, rows):
     path = Path(path)
+    if path.suffix.lower() not in {".xlsx", ".csv"}:
+        raise ValueError("Choose a local .xlsx or .csv file to export to.")
     if path.suffix.lower() == ".csv":
         with open(path, "w", newline="", encoding="utf-8-sig") as handle:
             writer = csv.writer(handle)
@@ -435,16 +436,15 @@ def write_spreadsheet(path, header, rows):
         raise PermissionError(f"Cannot write {path}. Close it in Excel and try again.")
 
 
-def export(paths, output=None, sheet_url=None, interactive=True):
-    """Export to a Google Sheet and/or a local file. Returns the number of characters exported."""
+def export(paths, output):
+    """Export to a local file. Returns the number of characters exported."""
+    if not output or str(output).lower().startswith(("http://", "https://")):
+        raise ValueError("Choose a local .xlsx or .csv file to export to.")
     characters = collect_characters(paths)
     if not characters:
         raise ValueError("No characters found in the addon data. Log in with the addon enabled first.")
     header, rows = build_table(characters)
-    if sheet_url:
-        gsheets.write_to_sheet(sheet_url, header, rows, interactive=interactive)
-    if output:
-        write_spreadsheet(output, header, rows)
+    write_spreadsheet(output, header, rows)
     return len(characters)
 
 
@@ -472,9 +472,6 @@ def run_gui():
 
     wow_var = tk.StringVar(value=config.get("wow_dir") or detect_wow_dir())
     out_var = tk.StringVar(value=config.get("output", ""))
-    mode_var = tk.StringVar(value=config.get("mode", "sheet"))
-    url_var = tk.StringVar(value=config.get("sheet_url", ""))
-    account_var = tk.StringVar()
     auto_var = tk.BooleanVar(value=config.get("auto_export", False))
     status_var = tk.StringVar(value="Ready.")
     files = []
@@ -531,16 +528,11 @@ def run_gui():
             {
                 "wow_dir": wow_var.get(),
                 "output": out_var.get(),
-                "mode": mode_var.get(),
-                "sheet_url": url_var.get(),
                 "auto_export": auto_var.get(),
                 "ui_theme": ui_theme_var.get(),
                 "window_position": config.get("window_position"),
             }
         )
-
-    def refresh_account():
-        account_var.set("Signed in to Google." if gsheets.is_signed_in() else "Not signed in.")
 
     def refresh_files(*_):
         files[:] = find_saved_variable_files(wow_var.get())
@@ -588,34 +580,17 @@ def run_gui():
 
         check()
 
-    def sign_in():
-        status_var.set("Complete the sign-in in your browser...")
-
-        def finished(_, error):
-            refresh_account()
-            status_var.set(f"Sign-in failed: {error}" if error else "Signed in to Google.")
-            if error:
-                messagebox.showerror(APP_NAME, str(error))
-
-        run_in_background(gsheets.get_credentials, finished)
-
-    def sign_out():
-        gsheets.sign_out()
-        refresh_account()
-
     def do_export(silent=False):
         if not files:
             refresh_files()
-        sheet_mode = mode_var.get() == "sheet"
-        url = url_var.get().strip() if sheet_mode else None
-        output = None if sheet_mode else out_var.get().strip()
+        output = out_var.get().strip()
         problem = None
         if not files:
             problem = "Select the WoW folder that contains the addon data."
-        elif sheet_mode and not url:
-            problem = "Paste the link to your Google Sheet."
-        elif not sheet_mode and not output:
+        elif not output:
             problem = "Choose the spreadsheet file to export to."
+        elif output.lower().startswith(("http://", "https://")) or Path(output).suffix.lower() not in {".xlsx", ".csv"}:
+            problem = "Choose a local .xlsx or .csv file to export to."
         if problem:
             status_var.set(problem)
             if not silent:
@@ -632,9 +607,7 @@ def run_gui():
                     messagebox.showerror(APP_NAME, str(error))
             else:
                 status_var.set(f"Exported {count} characters at {datetime.now():%H:%M:%S}.")
-            refresh_account()
-
-        run_in_background(lambda: export(paths, output, url, interactive=not silent), finished)
+        run_in_background(lambda: export(paths, output), finished)
 
     from grid import RosterGrid
 
@@ -669,22 +642,7 @@ def run_gui():
     ttk.Button(frame, text="Browse...", command=browse_wow).grid(row=row, column=2)
 
     row += 1
-    ttk.Radiobutton(frame, text="Google Sheet:", variable=mode_var, value="sheet", command=persist).grid(
-        row=row, column=0, sticky="w", pady=4
-    )
-    ttk.Entry(frame, textvariable=url_var).grid(row=row, column=1, columnspan=2, sticky="ew", padx=6)
-
-    row += 1
-    google = ttk.Frame(frame)
-    google.grid(row=row, column=1, columnspan=2, sticky="w", padx=6)
-    ttk.Button(google, text="Sign in with Google", command=sign_in).pack(side="left")
-    ttk.Button(google, text="Sign out", command=sign_out).pack(side="left", padx=6)
-    ttk.Label(google, textvariable=account_var).pack(side="left", padx=6)
-
-    row += 1
-    ttk.Radiobutton(frame, text="Local file:", variable=mode_var, value="file", command=persist).grid(
-        row=row, column=0, sticky="w", pady=4
-    )
+    ttk.Label(frame, text="Local file (.xlsx or .csv):").grid(row=row, column=0, sticky="w", pady=4)
     ttk.Entry(frame, textvariable=out_var).grid(row=row, column=1, sticky="ew", padx=6)
     ttk.Button(frame, text="Browse...", command=browse_output).grid(row=row, column=2)
 
@@ -708,7 +666,6 @@ def run_gui():
     ttk.Label(frame, textvariable=status_var, wraplength=640).grid(row=row, column=0, columnspan=3, sticky="w")
 
     refresh_files()
-    refresh_account()
     reload_roster()
 
     last_seen = {}
@@ -745,14 +702,17 @@ def run_gui():
 
 
 def main(argv):
-    # Headless: python app.py --export <wow_dir> <output.xlsx|csv|google-sheet-url>
+    # Headless: python app.py --export <wow_dir> <output.xlsx|csv>
     if len(argv) == 4 and argv[1] == "--export":
         paths = find_saved_variable_files(argv[2])
         if not paths:
             print("No addon data found.", file=sys.stderr)
             return 1
-        is_url = argv[3].startswith("http")
-        count = export(paths, None if is_url else argv[3], argv[3] if is_url else None)
+        try:
+            count = export(paths, argv[3])
+        except (OSError, ValueError) as error:
+            print(str(error), file=sys.stderr)
+            return 1
         print(f"Exported {count} characters to {argv[3]}")
         return 0
     run_gui()

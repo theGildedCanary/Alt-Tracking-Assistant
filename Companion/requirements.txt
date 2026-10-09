@@ -1,4 +1,2 @@
 openpyxl>=3.1
-google-auth-oauthlib>=1.2
-google-api-python-client>=2.100
 

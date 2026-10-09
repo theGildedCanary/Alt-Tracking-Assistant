@@ -8,6 +8,22 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
+## [2.0.0] - 2026-10-09
+
+### Added
+
+- Optional Windows companion with a roster grid and a persistent local character database.
+- Local Excel and CSV exports, with optional automatic export after addon data changes.
+- Companion controls for character mains, armor mains, True Main, and tracker visibility, synchronized to the addon on login or reload.
+- Customizable roster formatting, light and dark themes, and saved window placement.
+- Separate Windows companion download, with the executable placed in the main addon folder.
+
+### Changed
+
+- Keep exports local; remove Google sign-in and Google Sheets dependencies.
+- Package a neutral settings sync file and exclude generated personal settings from Git tracking.
+- Validate companion Python syntax alongside addon checks.
+
 ## [1.0.0] - 2026-10-08
 
 ### Added
