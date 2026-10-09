@@ -38,7 +38,7 @@ DEFAULTS = {
         "stripe": theme.PANEL_ALT,
         "gridLine": theme.DIVIDER,
         "separator": theme.GOLD,
-        "headerBg": "#232d38",
+        "headerBg": "#1E213E",
         "baseTitle": theme.GOLD,
         "trackerTitle": "#ffffff",
         "mainName": theme.GOLD,
