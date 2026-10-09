@@ -1,21 +1,30 @@
-name: Build Release Packages
+name: Build Release Package
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to rebuild
+        required: true
+        default: v2.0.0
 
 permissions:
   contents: write
 
+env:
+  RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+
 jobs:
-  build-release:
+  validate:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out release version
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Lua 5.1
         run: |
@@ -25,101 +34,74 @@ jobs:
       - name: Validate addon
         run: bash scripts/validate-addon.sh
 
-      - name: Verify TOC version matches release tag
+      - name: Verify release version
         shell: bash
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          TAG_VERSION="${TAG#v}"
-
+          TAG_VERSION="${RELEASE_TAG#v}"
           TOC_VERSION=$(awk -F: '
             /^## Version:/ {
-              gsub(/^[ \t]+|[ \t]+$/, "", $2)
+              gsub(/^[ \t]+|[ \t\r]+$/, "", $2)
               print $2
               exit
             }
           ' AltTrackingAssistant.toc)
-
-          echo "Release tag version: $TAG_VERSION"
-          echo "TOC version:         $TOC_VERSION"
 
           if [ "$TAG_VERSION" != "$TOC_VERSION" ]; then
             echo "ERROR: Release tag and TOC version do not match."
             exit 1
           fi
 
-      - name: Build addon package
-        shell: bash
-        run: |
-          TAG="${{ github.event.release.tag_name }}"
-          PACKAGE_DIR="build/AltTrackingAssistant"
-          ZIP_NAME="AltTrackingAssistant-${TAG}.zip"
-
-          mkdir -p "$PACKAGE_DIR"
-
-          cp -R Core "$PACKAGE_DIR/"
-          cp -R Features "$PACKAGE_DIR/"
-          cp -R Media "$PACKAGE_DIR/"
-          cp -R UI "$PACKAGE_DIR/"
-
-          cp AltTrackingAssistant.toc "$PACKAGE_DIR/"
-          cp scripts/AppSync.default.lua "$PACKAGE_DIR/AppSync.lua"
-          cp README.md "$PACKAGE_DIR/"
-          cp CHANGELOG.md "$PACKAGE_DIR/"
-          cp LICENSE "$PACKAGE_DIR/"
-
-          cd build
-          zip -r "../$ZIP_NAME" AltTrackingAssistant
-          cd ..
-
-          echo "Created $ZIP_NAME"
-
-      - name: Attach ZIP to GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${{ github.event.release.tag_name }}"
-          ZIP_NAME="AltTrackingAssistant-${TAG}.zip"
-
-          gh release upload "$TAG" "$ZIP_NAME" --clobber
-
-  build-companion:
-    needs: build-release
+  build-release:
+    needs: validate
     runs-on: windows-latest
 
     steps:
       - name: Check out release version
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
 
-      - name: Install companion build dependencies
+      - name: Install build dependencies
         run: python -m pip install pyinstaller -r Companion/requirements.txt
 
       - name: Build companion executable
         shell: pwsh
         run: ./Companion/build_exe.ps1
 
-      - name: Package companion
+      - name: Build combined package
         shell: pwsh
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          $packageDir = 'build/companion-release/AltTrackingAssistant'
+          $packageDir = 'build/release/AltTrackingAssistant'
           New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
-          Copy-Item -LiteralPath AltTrackingAssistantCompanion.exe -Destination $packageDir
-          Copy-Item -LiteralPath Companion/README.md -Destination "$packageDir/Companion-README.md"
-          Copy-Item -LiteralPath LICENSE -Destination $packageDir
-          Compress-Archive -Path $packageDir -DestinationPath "AltTrackingAssistantCompanion-$env:RELEASE_TAG-Windows.zip" -Force
 
-      - name: Attach companion ZIP to GitHub Release
+          foreach ($folder in @('Core', 'Features', 'Media', 'UI')) {
+            Copy-Item -LiteralPath $folder -Destination $packageDir -Recurse
+          }
+
+          foreach ($file in @(
+            'AltTrackingAssistant.toc',
+            'AltTrackingAssistantCompanion.exe',
+            'README.md',
+            'CHANGELOG.md',
+            'LICENSE'
+          )) {
+            Copy-Item -LiteralPath $file -Destination $packageDir
+          }
+
+          Copy-Item -LiteralPath scripts/AppSync.default.lua -Destination "$packageDir/AppSync.lua"
+          Copy-Item -LiteralPath Companion/README.md -Destination "$packageDir/Companion-README.md"
+
+          $zipName = "AltTrackingAssistant-$env:RELEASE_TAG.zip"
+          Compress-Archive -LiteralPath $packageDir -DestinationPath $zipName -Force
+
+      - name: Attach combined ZIP to release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$env:RELEASE_TAG" "AltTrackingAssistantCompanion-$env:RELEASE_TAG-Windows.zip" --clobber
+        run: |
+          gh release upload "$env:RELEASE_TAG" "AltTrackingAssistant-$env:RELEASE_TAG.zip" --clobber
