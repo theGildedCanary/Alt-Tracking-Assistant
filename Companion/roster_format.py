@@ -4,6 +4,7 @@ import copy
 import re
 
 import theme
+from layout import LAYOUT
 
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 ALIGNS = ("w", "center", "e")
@@ -26,12 +27,27 @@ BASE_COLUMNS = [
     {"key": "cooking", "title": "Cook.", "align": "center", "vertical": True, "frozen": False, "visible": True},
 ]
 
+EXPANSION_TITLES = {key: re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", key).title() for key, _ in LAYOUT}
+EXPANSION_TITLES.update(darkmoonFaire="DMF", mistsOfPandaria="MOP", classic="")
+
+TRACKER_COLUMNS = {
+    expansion: [{"key": key, "title": {"activeCovenantID": "Covenant", "renownByCovenant": "Renown"}.get(
+        key, re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", key).title()), "visible": True}
+        for key in keys if (expansion, key) != ("shadowlands", "covenantID")]
+    for expansion, keys in LAYOUT
+}
+
 DEFAULTS = {
     "font": {"family": "Montserrat", "bodySize": 9, "titleSize": 7, "bold": True, "titleBold": True,
              "titleSpacing": 2, "dateSpacing": 1},
     "rowHeight": 24,
     "stripes": True,
     "boldMainRows": True,
+    "mainHighlight": True,
+    "professionHighlight": True,
+    "expansionOrder": [expansion for expansion, _ in LAYOUT],
+    "expansionTitles": EXPANSION_TITLES,
+    "expansionVisible": {expansion: True for expansion, _ in LAYOUT},
     "italicMainRows": True,
     "trackerTitlesVertical": True,
     "classBackground": True,
@@ -51,16 +67,19 @@ DEFAULTS = {
         "factionText": "#000000",
         "genderText": "#2b2b2b",
         "classText": "#000000",
+        "professionProgress": "#331E53",
     },
     "factionColors": dict(theme.FACTION_COLORS),
     "genderColors": {"M": "#8fb3e0", "F": "#eba0bd"},
     "classColors": dict(theme.CLASS_COLORS),
+    "covenantColors": {"1": "#A9D6F5", "2": "#F2AAAA", "3": "#D2B5F0", "4": "#B4DFA9"},
     "expansionShade": dict(theme.EXPANSION_COLORS),
     "expansionAccent": dict(theme.EXPANSION_ACCENTS),
     "columns": BASE_COLUMNS,
+    "trackerColumns": TRACKER_COLUMNS,
 }
 
-COLOR_GROUPS = ("colors", "factionColors", "genderColors", "classColors", "expansionShade", "expansionAccent")
+COLOR_GROUPS = ("colors", "factionColors", "genderColors", "classColors", "covenantColors", "expansionShade", "expansionAccent")
 
 
 def defaults():
@@ -102,6 +121,20 @@ def normalize(raw):
     fmt["rowHeight"] = _int(raw.get("rowHeight"), fmt["rowHeight"], 16, 60)
     for key in ("stripes", "boldMainRows", "italicMainRows", "trackerTitlesVertical", "classBackground"):
         fmt[key] = _bool(raw.get(key), fmt[key])
+    fmt["mainHighlight"] = _bool(raw.get("mainHighlight"), fmt["boldMainRows"])
+    fmt["professionHighlight"] = _bool(raw.get("professionHighlight"), True)
+    order = raw.get("expansionOrder")
+    order = order if isinstance(order, list) else []
+    fmt["expansionOrder"] = list(dict.fromkeys([key for key in order if isinstance(key, str) and key in fmt["expansionShade"]] + fmt["expansionOrder"]))
+    titles = raw.get("expansionTitles")
+    titles = titles if isinstance(titles, dict) else {}
+    visible = raw.get("expansionVisible")
+    visible = visible if isinstance(visible, dict) else {}
+    for key in fmt["expansionOrder"]:
+        title = titles.get(key)
+        if isinstance(title, str):
+            fmt["expansionTitles"][key] = title.strip()[:64]
+        fmt["expansionVisible"][key] = _bool(visible.get(key), True)
     fmt["mark"] = _text(raw.get("mark"), fmt["mark"], 3)
     fmt["mainMark"] = _text(raw.get("mainMark"), fmt["mainMark"], 3)
 
@@ -111,6 +144,27 @@ def normalize(raw):
             value = stored.get(key)
             if isinstance(value, str) and HEX.match(value):
                 fmt[group][key] = value.lower()
+
+    stored_trackers = raw.get("trackerColumns")
+    stored_trackers = stored_trackers if isinstance(stored_trackers, dict) else {}
+    for expansion, tracker_defaults in TRACKER_COLUMNS.items():
+        known_trackers = {spec["key"]: spec for spec in tracker_defaults}
+        stored = stored_trackers.get(expansion)
+        stored = stored if isinstance(stored, list) else []
+        columns, seen = [], set()
+        for item in stored:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key")
+            if not isinstance(key, str) or key not in known_trackers or key in seen:
+                continue
+            seen.add(key)
+            spec = dict(known_trackers[key])
+            spec["title"] = _text(item.get("title"), spec["title"], 64)
+            spec["visible"] = _bool(item.get("visible"), True)
+            columns.append(spec)
+        columns.extend(dict(spec) for spec in tracker_defaults if spec["key"] not in seen)
+        fmt["trackerColumns"][expansion] = columns
 
     known = {c["key"]: c for c in BASE_COLUMNS}
     columns, seen = [], set()

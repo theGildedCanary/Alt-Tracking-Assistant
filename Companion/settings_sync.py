@@ -195,6 +195,36 @@ def read_addon_settings(paths):
     return normalize(addon_db.get("settings")), revision if isinstance(revision, (int, float)) else 0
 
 
+def merge_refresh(baseline, draft, incoming):
+    """Import untouched fields; preserve local edits and report simultaneous changes."""
+    missing = object()
+    conflicts = []
+
+    def merge(old, local, remote, path):
+        if all(isinstance(value, dict) for value in (old, local, remote)):
+            result = {}
+            for key in old.keys() | local.keys() | remote.keys():
+                value = merge(old.get(key, missing), local.get(key, missing),
+                              remote.get(key, missing), path + (key,))
+                if value is not missing:
+                    result[key] = value
+            return result
+        if local == old:
+            return copy.deepcopy(remote) if remote is not missing else missing
+        if remote != old and remote != local:
+            conflicts.append(".".join(path))
+        return copy.deepcopy(local) if local is not missing else missing
+
+    # Missing tracker flags mean enabled, just like the addon and Settings UI.
+    values = [normalize(value) for value in (baseline, draft, incoming)]
+    for value in values:
+        for expansion, _, checks in TRACKERS:
+            flags = value["trackedItems"].setdefault(expansion, {})
+            for key, _ in checks:
+                flags.setdefault(key, True)
+    return merge(*values, ()), conflicts
+
+
 def effective_settings(conn, paths):
     """(settings, pending). Pending app edits win until the addon reports it applied them."""
     settings, applied = read_addon_settings(paths)

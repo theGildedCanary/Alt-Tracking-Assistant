@@ -15,6 +15,18 @@ In an Excel workbook, only a tab named `Alt Tracking Assistant` is created/repla
 
 Headless: `python app.py --export "<WoW folder>" "<output.xlsx | output.csv>"`
 
+## Professions tab
+
+The Companion Professions dashboard has a GUID-based character picker, saved per-character profession selections, removable sidebar entries, and collapsible expansion progress bars. Select a character, add them, and check the professions you want to track. Tracked professions are highlighted on the roster when Profession Highlight is enabled.
+
+**Settings → Formatting → Colors → Profession progress bars** controls the bar color (default `#331E53`). Font family, body/title sizes, and bold settings also update the Professions tab immediately.
+
+Use **Settings → Roster → Columns** to show or hide the five profession columns, reorder columns, and change titles and alignment. **Profession Highlight** toggles gold shading for tracked professions. **Main Highlight** toggles main name coloring (gold by default) and bold main rows.
+
+Use **Settings → Roster → Expansions** to edit roster expansion names, show or hide entire blocks, and move expansions up or down. **Expansion trackers** below it provides names, visibility, and ordering for individual tracker columns, grouped by expansion. Trackers can only move within their own expansion. These choices are saved locally and apply immediately. **Settings → Formatting → Expansion tracker colors** controls colors and lists expansions in the same saved order.
+
+**Settings → Formatting → Faction, gender, class and covenant** includes covenant colors shared by covenant names and each covenant’s renown values.
+
 ## Roster tab
 
 Prof 1 and Prof 2 show profession names in separate columns next to Class. The vertical Arch., Fish., and Cook. columns show `x` for learned Archaeology, Fishing, and Cooking, and stay blank otherwise. Profession data comes from the addon after logging in to each character and logging out or using `/reload`. Professions are also included in local exports.

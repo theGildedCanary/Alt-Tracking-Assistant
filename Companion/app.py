@@ -204,12 +204,6 @@ def realm_initials(realm):
 RACE_SHORT = {"Lightforged Draenei": "Lightforged", "Zandalari Troll": "Zandalari"}
 GENDERS = {1: "M", 2: "F"}
 COVENANT_NAMES = {1: "Kyrian", 2: "Venthyr", 3: "Night Fae", 4: "Necrolord"}
-COVENANT_COLORS = {
-    1: "#A9D6F5",  # Kyrian: pale blue
-    2: "#F2AAAA",  # Venthyr: pale red
-    3: "#D2B5F0",  # Night Fae: pale purple
-    4: "#B4DFA9",  # Necrolord: pale green
-}
 HIDDEN_TRACKERS = {("shadowlands", "covenantID")}
 TRACKER_TITLES = {
     ("shadowlands", "activeCovenantID"): "Covenant",
@@ -285,7 +279,7 @@ def _cell_name(record, fmt):
     from grid import Cell
 
     colors = fmt["colors"]
-    return Cell(record.get("name") or "", fg=colors["mainName"] if record.get("isMain") else colors["text"])
+    return Cell(record.get("name") or "", fg=colors["mainName"] if fmt["mainHighlight"] and record.get("isMain") else colors["text"])
 
 
 def _cell_race(record, fmt):
@@ -352,22 +346,35 @@ BASE_BUILDERS = {
 }
 
 
-def build_roster_grid(characters, fmt, settings=None):
+def build_roster_grid(characters, fmt, settings=None, profession_tracking=None):
     """Columns and cells for the spreadsheet-style roster view, styled by the roster format settings."""
     from grid import Cell, Column
 
     colors = fmt["colors"]
+    from professions_ui import normalize_state, profession_key
+    tracked_professions = {entry["guid"]: set(entry["professions"])
+                           for entry in normalize_state(profession_tracking)}
     flats = [flatten_progress(c.get("progress")) for c in characters]
     tracked_items = settings_sync.normalize(settings)["trackedItems"]
     setting_keys = {
         ("shadowlands", "activeCovenantID"): "covenant",
         ("shadowlands", "renownByCovenant"): "renown",
     }
+    tracker_specs = {(expansion, spec["key"]): spec
+                     for expansion, specs in fmt["trackerColumns"].items() for spec in specs}
+    tracker_rank = {(expansion, spec["key"]): index
+                    for expansion, specs in fmt["trackerColumns"].items() for index, spec in enumerate(specs)}
     tracker_columns = [
         (expansion, key) for expansion, key in ordered_columns(flats)
-        if (expansion, key) not in HIDDEN_TRACKERS
+        if tracker_specs.get((expansion, key), {}).get("visible", True)
+        and fmt["expansionVisible"].get(expansion, True)
+        and (expansion, key) not in HIDDEN_TRACKERS
         and tracked_items.get(expansion, {}).get(setting_keys.get((expansion, key), key), True)
     ]
+
+    expansion_rank = {key: index for index, key in enumerate(fmt["expansionOrder"])}
+    tracker_columns.sort(key=lambda item: (expansion_rank.get(item[0], len(expansion_rank)),
+                                          tracker_rank.get(item, len(tracker_rank))))
 
     columns = []
     rows = [[] for _ in characters]
@@ -381,7 +388,12 @@ def build_roster_grid(characters, fmt, settings=None):
             )
         )
         for row, record in zip(rows, characters):
-            row.append(BASE_BUILDERS[spec["key"]](record, fmt))
+            cell = BASE_BUILDERS[spec["key"]](record, fmt)
+            if fmt["professionHighlight"] and spec["key"] in {"primary", "secondary", "archaeology", "fishing", "cooking"}:
+                profession = (record.get("professions") or {}).get(spec["key"])
+                if isinstance(profession, dict) and cell.text and profession_key(spec["key"], profession) in tracked_professions.get(record.get("guid"), set()):
+                    cell.bg, cell.fg = theme.GOLD, "#000000"
+            row.append(cell)
 
     for expansion, key in tracker_columns:
         shade = fmt["expansionShade"].get(expansion, colors["headerBg"])
@@ -398,11 +410,11 @@ def build_roster_grid(characters, fmt, settings=None):
                         if runs:
                             runs.append((" | ", accent))
                         text = f"{covenant_id}: {level}" if isinstance(renown, dict) else str(level)
-                        runs.append((text, COVENANT_COLORS.get(covenant_id, accent)))
+                        runs.append((text, fmt["covenantColors"].get(str(covenant_id), accent)))
                     cells.append(Cell("".join(text for text, _ in runs), fg=accent, text_runs=tuple(runs)))
                     continue
             if (expansion, key) == ("shadowlands", "activeCovenantID"):
-                cells.append(Cell(COVENANT_NAMES.get(value, ""), fg=COVENANT_COLORS.get(value, accent)))
+                cells.append(Cell(COVENANT_NAMES.get(value, ""), fg=fmt["covenantColors"].get(str(value), accent)))
                 continue
             if (expansion, key) == ("classic", "aq40"):
                 has_progress = isinstance(value, (int, float)) and value > 0
@@ -432,8 +444,9 @@ def build_roster_grid(characters, fmt, settings=None):
         longest = max((len(c.text) for c in cells), default=0)
         columns.append(
             Column(
-                TRACKER_TITLES.get((expansion, key), pretty(key)), 44,
-                group=GROUP_TITLES.get(expansion, pretty(expansion)), bg=shade, fg=accent,
+                tracker_specs.get((expansion, key), {}).get("title", TRACKER_TITLES.get((expansion, key), pretty(key))), 44,
+                group=fmt["expansionTitles"].get(expansion, GROUP_TITLES.get(expansion, pretty(expansion))),
+                group_key=expansion, bg=shade, fg=accent,
                 align="center" if longest <= 8 or (expansion, key) in CENTERED_TRACKERS else "w",
                 vertical=fmt["trackerTitlesVertical"], title_fg=colors["trackerTitle"],
                 separator_before=(expansion, key) == tracker_columns[0],
@@ -443,7 +456,7 @@ def build_roster_grid(characters, fmt, settings=None):
             row.append(cell)
 
     for record, row in zip(characters, rows):
-        bold = fmt["font"]["bold"] or (fmt["boldMainRows"] and record.get("isMain"))
+        bold = fmt["font"]["bold"] or (fmt["mainHighlight"] and record.get("isMain"))
         for cell in row:
             cell.bold = bool(bold)
             cell.italic = bool(fmt["italicMainRows"] and record.get("isMain"))
@@ -558,6 +571,26 @@ def run_gui():
     notebook.pack(fill="both", expand=True)
     roster_tab = ttk.Frame(notebook)
     notebook.add(roster_tab, text="Roster")
+    from professions_ui import ProfessionsTab, STATE_KEY, normalize_state
+    conn = db.connect()
+    try:
+        profession_dashboard_state = normalize_state(db.get_json(conn, STATE_KEY))
+    finally:
+        conn.close()
+
+    def save_profession_dashboard(state):
+        conn = db.connect()
+        try:
+            db.set_json(conn, STATE_KEY, state)
+        finally:
+            conn.close()
+
+        profession_dashboard_state[:] = state
+        render_roster()
+
+    professions_tab = ProfessionsTab(notebook, profession_dashboard_state,
+                                    save_profession_dashboard, ui_theme_var.get())
+    notebook.add(professions_tab, text="Professions")
     from settings_ui import SettingsTab
 
     def save_and_reload(settings):
@@ -566,10 +599,12 @@ def run_gui():
         return count
 
     format_state = {"fmt": load_format(), "characters": []}
+    professions_tab.set_format(format_state["fmt"])
 
     def change_format(fmt):
         format_state["fmt"] = roster_format.normalize(fmt)
         save_format(format_state["fmt"])
+        professions_tab.set_format(format_state["fmt"])
         render_roster()
 
     def change_ui_theme(mode):
@@ -579,6 +614,7 @@ def run_gui():
         colors = theme.UI_THEMES[mode]
         for page in settings_tab.pages.values():
             page.canvas.configure(background=colors["background"])
+        professions_tab.set_theme(mode)
 
         persist()
     
@@ -700,17 +736,21 @@ def run_gui():
 
     def render_roster():
         fmt = format_state["fmt"]
-        columns, rows = build_roster_grid(format_state["characters"], fmt, settings_tab.settings)
+        mains = db.main_guids(settings_tab.settings)
+        for character in format_state["characters"]:
+            character["isMain"] = character["guid"] in mains
+        columns, rows = build_roster_grid(format_state["characters"], fmt, settings_tab.settings, profession_dashboard_state)
         roster_grid.set_data(columns, rows, grid_module.style_from_format(fmt))
 
     def reload_roster():
         try:
             characters = sync_database(list(files))
+            settings, pending = load_settings(list(files)) if files else (settings_sync.normalize({}), False)
         except (OSError, LuaParseError, ValueError) as error:
             roster_status.set(f"Could not read addon data: {error}")
             return
         format_state["characters"] = characters
-        settings, pending = load_settings(list(files)) if files else (settings_sync.normalize({}), False)
+        professions_tab.load(characters)
         settings_tab.load(characters, settings, pending)
         render_roster()
         roster_status.set(f"{len(characters)} characters  ·  updated {datetime.now():%H:%M:%S}")
@@ -747,12 +787,12 @@ def run_gui():
     refresh_files()
     reload_roster()
 
-    last_seen = {}
+    last_seen = {str(f): (f.stat().st_mtime_ns, f.stat().st_size) for f in files if f.exists()}
 
     def poll():
         if files:
-            current = {str(f): f.stat().st_mtime for f in files if f.exists()}
-            if last_seen and current != last_seen:
+            current = {str(f): (f.stat().st_mtime_ns, f.stat().st_size) for f in files if f.exists()}
+            if current != last_seen:
                 reload_roster()
                 if auto_var.get():
                     do_export(silent=True)

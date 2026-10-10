@@ -71,6 +71,7 @@ class Column:
     vertical: bool = False
     title_fg: str = "#ffffff"
     separator_before: bool = False
+    group_key: str = ""
 
 
 @dataclass
@@ -176,8 +177,9 @@ class RosterGrid(ttk.Frame):
         groups = {}
         for column in columns:
             if column.group:
-                groups.setdefault(column.group, []).append(column)
-        for name, members in groups.items():
+                groups.setdefault(column.group_key or column.group, []).append(column)
+        for members in groups.values():
+            name = members[0].group
             shortfall = self.f_bold.measure(name.upper()) + 24 - sum(c.width for c in members)
             if shortfall > 0:
                 members[0].width += shortfall
@@ -313,7 +315,7 @@ class RosterGrid(ttk.Frame):
         index = 0
         while index < len(columns):
             span_end = index
-            while span_end + 1 < len(columns) and columns[span_end + 1].group == columns[index].group:
+            while span_end + 1 < len(columns) and (columns[span_end + 1].group_key or columns[span_end + 1].group) == (columns[index].group_key or columns[index].group):
                 span_end += 1
             span = columns[index : span_end + 1]
             span_width = sum(c.width for c in span)

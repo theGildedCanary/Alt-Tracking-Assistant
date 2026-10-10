@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import settings_sync as ss
-from format_ui import FormatPanel
+from format_ui import FormatPanel, RosterPanel
 
 NONE_LABEL = "(none)"
 COLUMNS = 4
@@ -30,7 +30,7 @@ class ScrollFrame(ttk.Frame):
             self.canvas.yview_scroll(-3 * (event.delta // 120 or (1 if event.delta > 0 else -1)), "units")
 
 
-PAGES = ("Main Selection", "Tracking", "Formatting")
+PAGES = ("Main Selection", "Tracking", "Roster", "Formatting")
 
 
 class SettingsTab(ttk.Frame):
@@ -47,6 +47,8 @@ class SettingsTab(ttk.Frame):
         self.settings = ss.normalize({})
         self.dirty = False
         self.loaded = False
+        self.baseline = copy.deepcopy(self.settings)
+        self.conflicts = []
         self.status = tk.StringVar()
 
         nav = ttk.Frame(self, padding=(8, 8))
@@ -65,6 +67,9 @@ class SettingsTab(ttk.Frame):
         self.pages = {}
         for name in PAGES:
             self.pages[name] = ScrollFrame(self.holder)
+        fmt = copy.deepcopy(fmt)
+        self.roster_panel = RosterPanel(self.pages["Roster"].inner, on_format_change, fmt)
+        self.roster_panel.pack(fill="both", expand=True)
         self.format_panel = FormatPanel(self.pages["Formatting"].inner, on_format_change, fmt)
         self.format_panel.pack(fill="both", expand=True)
 
@@ -99,11 +104,13 @@ class SettingsTab(ttk.Frame):
         for page in self.pages.values():
             page.pack_forget()
         self.pages[name].pack(fill="both", expand=True)
-        if name == "Formatting":
+        if name != "Main Selection":
             self.bar.pack_forget()
         else:
             self.bar.pack(fill="x", before=self.holder)
 
+        if name == "Formatting":
+            self.format_panel._build_expansions()
         self.update_idletasks()
         canvas = self.pages[ name ].canvas
         canvas.configure(scrollregion=canvas.bbox("all"))
@@ -113,10 +120,19 @@ class SettingsTab(ttk.Frame):
         """Show settings from the addon. Unsaved edits are kept when new data arrives."""
         self.characters = characters
         if self.dirty and self.loaded:
-            return
-        self.settings = copy.deepcopy(settings)
+            self.settings, conflicts = ss.merge_refresh(self.baseline, self.settings, settings)
+            self.conflicts = sorted(set(self.conflicts + conflicts))
+        else:
+            self.settings = copy.deepcopy(settings)
+            self.conflicts = []
+        self.baseline = copy.deepcopy(settings)
         self.loaded = True
-        self.status.set("Saved changes are waiting for /reload in game." if pending else "")
+        if self.conflicts:
+            self.status.set("Addon settings changed too. Your edits were kept; Save to use them or Revert to use addon settings.")
+        elif self.dirty:
+            self.status.set("Unsaved changes kept; updated addon settings imported.")
+        else:
+            self.status.set("Saved changes are waiting for /reload in game." if pending else "")
         self._build()
 
     def _revert(self):
@@ -132,6 +148,8 @@ class SettingsTab(ttk.Frame):
             self.status.set(f"Could not save: {error}")
             return
         self.dirty = False
+        self.baseline = copy.deepcopy(self.settings)
+        self.conflicts = []
         if count:
             self.status.set("Saved. Type /reload in game (or log out) to apply the changes.")
         else:
@@ -140,6 +158,8 @@ class SettingsTab(ttk.Frame):
     def _touch(self):
         self.dirty = True
         self.status.set("Unsaved changes.")
+        if self.on_tracking_change:
+            self.on_tracking_change()
 
     def _labels(self, slot_classes, faction):
         entries = []
@@ -160,6 +180,9 @@ class SettingsTab(ttk.Frame):
         for page in ("Main Selection", "Tracking"):
             for child in self.pages[page].inner.winfo_children():
                 child.destroy()
+        expansion_page = ttk.LabelFrame(self.pages["Tracking"].inner, text="Expansions", padding=10)
+        expansion_page.pack(fill="both", expand=True)
+        self.tracking_pages = {"Expansions": expansion_page}
         mains = self.settings["characterMains"]
         known = {r["guid"]: f"{r.get('name') or 'Unknown'} - {r.get('realm') or 'Unknown Realm'}" for r in self.characters}
 
@@ -186,7 +209,17 @@ class SettingsTab(ttk.Frame):
         slots_frame.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self._slot_grid(slots_frame, ss.armor_slots(mains["armorMode"]), known)
 
-        box = self._section("Tracking", "Expansion Tracking")
+        box = self.tracking_pages["Expansions"]
+        footer = ttk.Frame(box, padding=(0, 12, 0, 0))
+        footer.pack(side="bottom", fill="x")
+        actions = ttk.Frame(footer)
+        actions.pack(side="right", anchor="e")
+        ttk.Button(actions, text="Save to addon", command=self._save).pack(side="left", padx=(0, 6))
+        ttk.Button(actions, text="Revert", command=self._revert).pack(side="left")
+        ttk.Label(footer, textvariable=self.status, wraplength=480).pack(side="left", fill="x", expand=True, padx=(0, 12))
+        options = ttk.Frame(box)
+        options.pack(side="top", fill="both", expand=True)
+        box = options
         for exp_key, exp_title, checks in ss.TRACKERS:
             ttk.Label(box, text=exp_title, font=("TkDefaultFont", 9, "bold")).pack(anchor="w", pady=(6, 2))
             row = ttk.Frame(box)
@@ -198,8 +231,6 @@ class SettingsTab(ttk.Frame):
                 def toggle(exp=exp_key, check=check_id, var=var):
                     self.settings["trackedItems"].setdefault(exp, {})[check] = var.get()
                     self._touch()
-                    if self.on_tracking_change:
-                        self.on_tracking_change()
 
                 ttk.Checkbutton(row, text=label, variable=var, command=toggle).grid(
                     row=index // COLUMNS, column=index % COLUMNS, sticky="w", padx=(0, 18), pady=1

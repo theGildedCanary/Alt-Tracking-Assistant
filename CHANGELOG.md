@@ -16,6 +16,12 @@ The project uses semantic versioning:
 - Character profession snapshots and expansion skill progress bars for learned profession tiers.
 - Automatic profession updates on skill changes and profession window updates; shared Archaeology skill progress.
 - Companion roster profession names beside Class and vertical Archaeology, Fishing, and Cooking indicators, with database persistence and local exports.
+- Companion Roster settings page with column visibility, order, titles, alignment, and Profession Highlight and Main Highlight toggles.
+- Companion Roster expansion controls for custom block names, visibility, and layout order; Formatting lists expansion colors in the same order.
+- Companion Roster tracker controls grouped by expansion, with custom names, visibility, and ordering within each block.
+- Companion covenant color controls for covenant names and renown; removed the class background checkbox from Formatting.
+- Restored the Expansions group box in Companion Tracking settings.
+- Companion Professions dashboard with a GUID-based character picker, saved per-character profession selections, removable sidebar entries, and collapsible expansion progress bars.
 
 ## [2.0.0] - 2026-10-09
 

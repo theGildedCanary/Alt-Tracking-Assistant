@@ -21,6 +21,7 @@ COLOR_LABELS = [
     ("factionText", "Faction letter"),
     ("genderText", "Gender letter"),
     ("classText", "Class text (on class color)"),
+    ("professionProgress", "Profession progress bars"),
 ]
 ALIGN_LABELS = {"w": "Left", "center": "Center", "e": "Right"}
 CLASS_NAMES = {
@@ -47,7 +48,7 @@ class FormatPanel(ttk.Frame):
     def __init__(self, parent, on_change, fmt):
         super().__init__(parent, padding=12)
         self.on_change = on_change
-        self.fmt = copy.deepcopy(fmt)
+        self.fmt = fmt
         self._pending = None
         self._build()
 
@@ -210,7 +211,6 @@ class FormatPanel(ttk.Frame):
         for text, path in (
             ("Bold cell text", ("font", "bold")),
             ("Bold titles", ("font", "titleBold")),
-            ("Always bold main character rows", ("boldMainRows",)),
         ):
             self._check(flags, text, path).pack(side="left", padx=(0, 18))
 
@@ -233,7 +233,7 @@ class FormatPanel(ttk.Frame):
             box, [(label, lambda p, k=key: self._color(p, ("colors", k))) for key, label in COLOR_LABELS]
         )
 
-        box = self._section("Faction, gender and class")
+        box = self._section("Faction, gender, class and covenant")
         self._labelled_grid(
             box,
             [
@@ -244,11 +244,8 @@ class FormatPanel(ttk.Frame):
             ],
         )
         ttk.Separator(box).grid(row=2, column=0, columnspan=4, sticky="ew", pady=8)
-        self._check(box, "Use class colors as the cell background (otherwise as the text color)", ("classBackground",)).grid(
-            row=3, column=0, columnspan=4, sticky="w"
-        )
         class_frame = ttk.Frame(box)
-        class_frame.grid(row=4, column=0, columnspan=4, sticky="w", pady=(6, 0))
+        class_frame.grid(row=3, column=0, columnspan=4, sticky="w", pady=(6, 0))
         self._labelled_grid(
             class_frame,
             [
@@ -258,15 +255,28 @@ class FormatPanel(ttk.Frame):
             per_row=3,
         )
 
-        box = self._section("Expansion tracker colors (header and completed cell shade / text)")
-        for row, expansion in enumerate(self.fmt["expansionShade"]):
+        ttk.Separator(box).grid(row=4, column=0, columnspan=4, sticky="ew", pady=8)
+        covenant_frame = ttk.Frame(box)
+        covenant_frame.grid(row=5, column=0, columnspan=4, sticky="w")
+        self._labelled_grid(covenant_frame, [
+            (name, lambda p, key=key: self._color(p, ("covenantColors", key)))
+            for key, name in (("1", "Kyrian"), ("2", "Venthyr"), ("3", "Night Fae"), ("4", "Necrolord"))
+        ])
+
+        self.expansions_box = self._section("Expansion tracker colors (header and completed cell shade / text)")
+        self._build_expansions()
+
+    def _build_expansions(self):
+        box = self.expansions_box
+        for child in box.winfo_children():
+            child.destroy()
+        for column, heading in enumerate(("Expansion", "Shade", "Text")):
+            ttk.Label(box, text=heading).grid(row=0, column=column, sticky="w", padx=6)
+        for index, expansion in enumerate(self.fmt["expansionOrder"]):
+            row = index + 1
             ttk.Label(box, text=EXPANSION_NAMES.get(expansion, expansion)).grid(row=row, column=0, sticky="w", padx=(0, 12), pady=2)
             self._color(box, ("expansionShade", expansion)).grid(row=row, column=1, padx=(0, 8), pady=2)
             self._color(box, ("expansionAccent", expansion)).grid(row=row, column=2, pady=2)
-
-        self.columns_box = self._section("Columns (order, titles, alignment)")
-        self._build_columns()
-
     def _build_columns(self):
         box = self.columns_box
         for child in box.winfo_children():
@@ -311,6 +321,92 @@ class FormatPanel(ttk.Frame):
         self._changed()
 
     def _reset(self):
-        self.fmt = rf.defaults()
+        current = rf.defaults()
+        for key in current:
+            if key not in {"columns", "mainHighlight", "professionHighlight", "expansionOrder", "expansionTitles", "expansionVisible", "trackerColumns"}:
+                self.fmt[key] = current[key]
         self._build()
         self._changed()
+
+
+class RosterPanel(FormatPanel):
+    """Roster behavior and columns, sharing state with the Formatting page."""
+
+    def _build(self):
+        for child in self.winfo_children():
+            child.destroy()
+        box = self._section("Highlights")
+        self._check(box, "Profession Highlight", ("professionHighlight",)).pack(anchor="w")
+        self._check(box, "Main Highlight", ("mainHighlight",)).pack(anchor="w", pady=(6, 0))
+        ttk.Label(box, text="Profession Highlight colors tracked professions gold. Main Highlight colors main names gold and bolds their rows.", wraplength=650).pack(anchor="w", pady=(8, 0))
+        self.columns_box = self._section("Columns (order, titles, alignment)")
+        self._build_columns()
+
+        self.expansions_box = self._section("Expansions")
+        self._build_expansions()
+        self.trackers_box = self._section("Expansion trackers")
+        self._build_trackers()
+
+    def _build_expansions(self):
+        box = self.expansions_box
+        for child in box.winfo_children():
+            child.destroy()
+        for column, heading in enumerate(("Expansion", "Show", "Roster name", "Order")):
+            ttk.Label(box, text=heading).grid(row=0, column=column, sticky="w", padx=6)
+        for index, expansion in enumerate(self.fmt["expansionOrder"]):
+            row = index + 1
+            ttk.Label(box, text=EXPANSION_NAMES.get(expansion, expansion)).grid(row=row, column=0, sticky="w", padx=6, pady=2)
+            self._check(box, "", ("expansionVisible", expansion)).grid(row=row, column=1, padx=6)
+            self._entry(box, ("expansionTitles", expansion), width=28).grid(row=row, column=2, padx=6, pady=2)
+            arrows = ttk.Frame(box)
+            arrows.grid(row=row, column=3, padx=6)
+            for step, label in ((-1, "\u25b2"), (1, "\u25bc")):
+                ttk.Button(arrows, text=label, width=3, command=lambda i=index, s=step: self._move_expansion(i, s)).pack(side="left")
+
+    def _move_expansion(self, index, step):
+        order = self.fmt["expansionOrder"]
+        target = index + step
+        if 0 <= target < len(order):
+            order[index], order[target] = order[target], order[index]
+            self._build_expansions()
+            self._build_trackers()
+            self._changed()
+
+    def _build_trackers(self):
+        for child in self.trackers_box.winfo_children():
+            child.destroy()
+        ttk.Label(self.trackers_box, text="Rename, show or hide, and reorder trackers within each expansion.").pack(anchor="w", pady=(0, 8))
+        self.tracker_boxes = {}
+        for expansion in self.fmt["expansionOrder"]:
+            box = ttk.LabelFrame(self.trackers_box, text=EXPANSION_NAMES.get(expansion, expansion), padding=8)
+            box.pack(fill="x", pady=(0, 8))
+            self.tracker_boxes[expansion] = box
+            self._build_tracker_group(expansion)
+
+    def _build_tracker_group(self, expansion):
+        box = self.tracker_boxes[expansion]
+        for child in box.winfo_children():
+            child.destroy()
+        for column, heading in enumerate(("Tracker", "Show", "Roster name", "Order")):
+            ttk.Label(box, text=heading).grid(row=0, column=column, sticky="w", padx=6)
+        specs = self.fmt["trackerColumns"][expansion]
+        for index, spec in enumerate(specs):
+            row = index + 1
+            default = next(item for item in rf.TRACKER_COLUMNS[expansion] if item["key"] == spec["key"])
+            ttk.Label(box, text=default["title"]).grid(row=row, column=0, sticky="w", padx=6, pady=2)
+            self._check(box, "", ("trackerColumns", expansion, index, "visible")).grid(row=row, column=1, padx=6)
+            self._entry(box, ("trackerColumns", expansion, index, "title"), width=28).grid(row=row, column=2, padx=6, pady=2)
+            arrows = ttk.Frame(box)
+            arrows.grid(row=row, column=3, padx=6)
+            for step, label in ((-1, "\u25b2"), (1, "\u25bc")):
+                ttk.Button(arrows, text=label, width=3,
+                           state="normal" if 0 <= index + step < len(specs) else "disabled",
+                           command=lambda e=expansion, i=index, s=step: self._move_tracker(e, i, s)).pack(side="left")
+
+    def _move_tracker(self, expansion, index, step):
+        specs = self.fmt["trackerColumns"][expansion]
+        target = index + step
+        if 0 <= target < len(specs):
+            specs[index], specs[target] = specs[target], specs[index]
+            self._build_tracker_group(expansion)
+            self._changed()
