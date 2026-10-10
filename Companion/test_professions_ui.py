@@ -15,7 +15,7 @@ class ProfessionsDashboardTests(unittest.TestCase):
         tab.load([{"guid": "a", "name": "Test", "professions": {"primary": {
             "name": "Alchemy", "skillLineID": 171, "expansions": [
                 {"name": "Midnight Alchemy", "skillLevel": 50, "maxSkillLevel": 100}]}}}])
-        self.assertEqual(tab.fmt["colors"]["professionProgress"], "#331E53")
+        self.assertEqual(tab.fmt["colors"]["professionProgress"], "#3F64B5")
         tab.expanded.add(("a", "171"))
         fmt = roster_format.defaults()
         fmt["colors"]["professionProgress"] = "#abcdef"
@@ -30,7 +30,8 @@ class ProfessionsDashboardTests(unittest.TestCase):
                    if isinstance(child, tk.Canvas))
         root.update_idletasks()
         bar.event_generate("<Configure>", width=400, height=40)
-        self.assertTrue(any(bar.itemcget(item, "fill") == "#abcdef" for item in bar.find_all()))
+        self.assertEqual(bar.kit, "alchemy")
+        self.assertTrue(any(bar.type(item) == "image" for item in bar.find_all()))
         texts = [item for item in bar.find_all() if bar.type(item) == "text"]
         self.assertEqual(bar.itemcget(texts[-1], "font"), str(tab.body_font))
 
@@ -91,7 +92,7 @@ class ProfessionsDashboardTests(unittest.TestCase):
         self.assertEqual(name.text, "MIXEDCASE")
         for key in ("186", "171", "185"):
             tab.select_profession("a", key, True)
-        sections = tab.details.inner.winfo_children()
+        sections = [child for child in tab.details.inner.winfo_children() if isinstance(child, ttk.LabelFrame)]
         self.assertEqual([section.cget("text") for section in sections], ["Primary", "Secondary", "Tertiary"])
         for section, expected in zip(sections, ("ALCHEMY", "MINING", "COOKING")):
             card = section.winfo_children()[0]

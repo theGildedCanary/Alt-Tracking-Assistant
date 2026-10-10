@@ -3,6 +3,19 @@ import app
 import roster_format
 
 class ProfessionFormattingTests(unittest.TestCase):
+    def test_legacy_purple_default_upgrades_to_blue(self):
+        old = {"colors": {"professionProgress": "#331E53"}}
+        upgraded = roster_format.normalize(old)
+        self.assertEqual(upgraded["colors"]["professionProgress"], "#3F64B5")
+        self.assertEqual(upgraded["professionBarVersion"], 1)
+        self.assertEqual(roster_format.normalize(upgraded)["colors"]["professionProgress"], "#3f64b5")
+
+    def test_custom_profession_colors_are_preserved(self):
+        custom = roster_format.normalize({"colors": {"professionProgress": "#ABCDEF"}})
+        self.assertEqual(custom["colors"]["professionProgress"], "#abcdef")
+        custom["colors"]["professionProgress"] = "#331E53"
+        self.assertEqual(roster_format.normalize(custom)["colors"]["professionProgress"], "#331e53")
+
     def test_formatting_controls_each_profession_column(self):
         fmt = roster_format.defaults()
         record = {"professions": {"primary": {"name": "Alchemy"}}}

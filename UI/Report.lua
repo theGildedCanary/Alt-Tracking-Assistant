@@ -249,14 +249,110 @@ local function CreateRoundedProgressBar(parent, height)
     return bar
 end
 
+-- Render WoW's profession-specific atlas sheets in their original colors.
+-- Saved-alt values drive the fill; no live profession UI mixins are inherited.
+local function CreateProfessionProgressBar(parent, height)
+    local kits = {
+        [171] = "Alchemy", [164] = "Blacksmithing", [185] = "Cooking",
+        [333] = "Enchanting", [202] = "Engineering", [356] = "Fishing",
+        [182] = "Herbalism", [773] = "Inscription", [755] = "Jewelcrafting",
+        [165] = "Leatherworking", [186] = "Mining", [393] = "Skinning", [197] = "Tailoring",
+    }
+    local bar = CreateFrame("Frame", nil, parent)
+    bar:SetHeight(height)
+    local background = bar:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetAtlas("Professions-skillbar-bg")
+    local interior = CreateFrame("Frame", nil, bar)
+    interior:SetClipsChildren(true)
+    local fill = interior:CreateTexture(nil, "ARTWORK")
+    fill:SetPoint("TOPLEFT", interior, "TOPLEFT")
+    fill:SetHeight(height * 18 / 29)
+    local flare = interior:CreateTexture(nil, "ARTWORK", nil, 1)
+    flare:SetSize(height * 53 / 29, height * 16 / 29)
+    flare:SetBlendMode("ADD")
+    local borderFrame = CreateFrame("Frame", nil, bar)
+    borderFrame:SetAllPoints(bar)
+    borderFrame:SetFrameLevel(interior:GetFrameLevel() + 1)
+    local border = borderFrame:CreateTexture(nil, "OVERLAY")
+    border:SetAllPoints(borderFrame)
+    border:SetAtlas("Professions-skillbar-frame")
+
+    function bar:UpdateFill()
+        local info = self.atlasInfo
+        if not info then return end
+        local fraction = self.fraction or 0
+        local inset = self:GetWidth() * 5 / 451
+        interior:ClearAllPoints()
+        interior:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -height * 3 / 29)
+        interior:SetSize(math.max(0.01, self:GetWidth() - 2 * inset), height * 18 / 29)
+        fill:SetShown(fraction > 0)
+        fill:SetWidth(math.max(0.01, interior:GetWidth() * fraction))
+        local columns, rows = self.columns, self.rows
+        local frame = math.min(columns * rows - 1, math.floor((self.elapsed or 0) / 2 * columns * rows))
+        local column, row = frame % columns, math.floor(frame / columns)
+        local dx = (info.rightTexCoord - info.leftTexCoord) / columns
+        local dy = (info.bottomTexCoord - info.topTexCoord) / rows
+        local left, top = info.leftTexCoord + column * dx, info.topTexCoord + row * dy
+        fill:SetTexCoord(left, left + dx * fraction, top, top + dy)
+        flare:ClearAllPoints()
+        flare:SetPoint("RIGHT", fill, "RIGHT", 0, 0)
+        flare:SetShown(self.hasFlare and fraction > 0 and fraction < 1)
+    end
+    local function Animate(self, elapsed)
+        self.elapsed = math.min(2, (self.elapsed or 0) + elapsed)
+        self:UpdateFill()
+        if self.elapsed >= 2 then self:SetScript("OnUpdate", nil) end
+    end
+    function bar:SetProfession(skillLineID)
+        if self.skillLineID == skillLineID and self.atlasInfo then return end
+        self.skillLineID = skillLineID
+        local kit = kits[skillLineID] or "DefaultBlue"
+        local atlas = "Skillbar_Fill_Flipbook_" .. kit
+        local info = C_Texture.GetAtlasInfo(atlas)
+        if not info then
+            atlas = "Skillbar_Fill_Flipbook_DefaultBlue"
+            info = C_Texture.GetAtlasInfo(atlas)
+        end
+        self.atlasInfo = info
+        if not info then fill:Hide(); flare:Hide(); return end
+        self.columns = info.height >= 34 and 2 or 1
+        self.rows = math.max(1, math.floor(info.height / 34))
+        -- Use the sheet directly: SetTexCoord below uses absolute sheet UVs.
+        -- An atlas texture remaps those UVs again, sampling adjacent frames.
+        fill:SetTexture(info.file)
+        local flareAtlas = "Skillbar_Flare_" .. kit
+        self.hasFlare = C_Texture.GetAtlasInfo(flareAtlas) ~= nil
+        if self.hasFlare then flare:SetAtlas(flareAtlas) end
+        self.elapsed = 0
+        self:SetScript("OnUpdate", Animate)
+        self:UpdateFill()
+    end
+    function bar:SetValue(fraction)
+        fraction = math.max(0, math.min(1, fraction or 0))
+        if fraction ~= self.fraction then
+            self.elapsed = 0
+            self:SetScript("OnUpdate", Animate)
+        end
+        self.fraction = fraction
+        self:UpdateFill()
+    end
+    bar:SetScript("OnShow", function(self)
+        self.elapsed = 0
+        self:SetScript("OnUpdate", Animate)
+    end)
+    bar:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil) end)
+    return bar
+end
+
 local function CreateCard(parent, width, height)
     local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     card:SetSize(width, height)
     card:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 10,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
     })
     card:SetBackdropColor(unpack(ATA.UI.theme.colors.panel))
     card:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.panelBorder))
@@ -272,7 +368,7 @@ local function CreateThemedButton(parent, text, width, height)
         edgeSize = 1,
         insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    button:SetBackdropColor(0.12, 0.16, 0.20, 1)
+    button:SetBackdropColor(unpack(ATA.UI.theme.colors.control))
     button:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.goldDark))
 
     local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -282,13 +378,41 @@ local function CreateThemedButton(parent, text, width, height)
     button.label = label
 
     button:SetScript("OnEnter", function(self)
-        self:SetBackdropColor(0.20, 0.23, 0.25, 1)
+        self:SetBackdropColor(unpack(ATA.UI.theme.colors.controlHover))
         self:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.gold))
     end)
     button:SetScript("OnLeave", function(self)
-        self:SetBackdropColor(0.12, 0.16, 0.20, 1)
+        self:SetBackdropColor(unpack(ATA.UI.theme.colors.control))
         self:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.goldDark))
     end)
+    return button
+end
+
+local function CreateThemedTab(parent, text, width, height)
+    -- These tabs have their own state textures, independent of shared
+    -- backdrop templates and gradient opacity applied by other UI code.
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(width, height)
+    local colors = ATA.UI.theme.colors
+    local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    label:SetPoint("CENTER")
+    label:SetText(text)
+    button.label = label
+
+    function button:UpdateAppearance()
+        local texture = self.selected and "TabActive.tga" or "TabInactive.tga"
+        self:SetNormalTexture("Interface\\AddOns\\AltTrackingAssistant\\Media\\" .. texture)
+        self.label:SetTextColor(unpack((self.selected or self.hovered) and colors.gold or colors.mutedText))
+    end
+    button:SetScript("OnEnter", function(self)
+        self.hovered = true
+        self:UpdateAppearance()
+    end)
+    button:SetScript("OnLeave", function(self)
+        self.hovered = false
+        self:UpdateAppearance()
+    end)
+    button:UpdateAppearance()
     return button
 end
 
@@ -306,7 +430,8 @@ local function CreateExpansionCard(parent, anchor, expansionKey, options)
     sectionHeader:SetHeight(56)
 
     local headerBackground = sectionHeader:CreateTexture(nil, "BACKGROUND")
-    headerBackground:SetAllPoints()
+    headerBackground:SetPoint("TOPLEFT", sectionHeader, "TOPLEFT", 3, -3)
+    headerBackground:SetPoint("BOTTOMRIGHT", sectionHeader, "BOTTOMRIGHT", -3, 0)
     headerBackground:SetTexture("Interface\\Buttons\\WHITE8X8")
     headerBackground:SetVertexColor(unpack(ATA.UI.theme.colors.expansions[expansionKey]))
 
@@ -642,13 +767,13 @@ local function CreateRosterRow(parent)
     local background = row:CreateTexture(nil, "BACKGROUND")
     background:SetAllPoints()
     background:SetTexture("Interface\\Buttons\\WHITE8X8")
-    background:SetVertexColor(0.08, 0.10, 0.13, 0.8)
+    background:SetVertexColor(unpack(ATA.UI.theme.colors.rosterRow))
     row.background = background
 
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
     highlight:SetAllPoints()
     highlight:SetTexture("Interface\\Buttons\\WHITE8X8")
-    highlight:SetVertexColor(0.22, 0.25, 0.30, 0.55)
+    highlight:SetVertexColor(unpack(ATA.UI.theme.colors.rosterHover))
 
     local avatarBorder = row:CreateTexture(nil, "ARTWORK")
     avatarBorder:SetSize(30, 30)
@@ -696,18 +821,35 @@ local function CreateRosterRow(parent)
 end
 
 local function CreateReportFrame()
-    local frame = CreateFrame("Frame", "AltTrackingAssistantReportFrame", UIParent, "BackdropTemplate")
+    local frame = CreateFrame("Frame", "AltTrackingAssistantReportFrame", UIParent)
     table.insert(UISpecialFrames, frame:GetName())
     frame:SetSize(980, 660)
     frame:SetPoint("CENTER")
-    frame:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 2,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
-    frame:SetBackdropColor(unpack(ATA.UI.theme.colors.panel))
-    frame:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.gold))
+    -- Own the background and bevel instead of inheriting shared UI backdrops.
+    local background = frame:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetTexture("Interface\\AddOns\\AltTrackingAssistant\\Media\\PanelBackground.tga")
+    frame.ataBackground = background
+    local function AddBorder(inset, color)
+        for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+            local edge = frame:CreateTexture(nil, "BORDER")
+            edge:SetColorTexture(unpack(color))
+            if side == "TOP" or side == "BOTTOM" then
+                local offset = side == "TOP" and -inset or inset
+                edge:SetPoint(side .. "LEFT", frame, side .. "LEFT", inset, offset)
+                edge:SetPoint(side .. "RIGHT", frame, side .. "RIGHT", -inset, offset)
+                edge:SetHeight(1)
+            else
+                local offset = side == "LEFT" and inset or -inset
+                edge:SetPoint("TOP" .. side, frame, "TOP" .. side, offset, -inset)
+                edge:SetPoint("BOTTOM" .. side, frame, "BOTTOM" .. side, offset, inset)
+                edge:SetWidth(1)
+            end
+        end
+    end
+    AddBorder(0, { 0.04, 0.035, 0.025, 1 })
+    AddBorder(1, ATA.UI.theme.colors.panelBorder)
+    AddBorder(2, { 0.12, 0.11, 0.08, 1 })
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
@@ -796,7 +938,9 @@ local function CreateReportFrame()
 
     local levelLabel, levelText = AddCharacterField("LEVEL", 732, 42)
 
-    local rescanButton = CreateThemedButton(characterCard, "Rescan", 90, 26)
+    local rescanButton = CreateFrame("Button", nil, characterCard, "UIPanelButtonTemplate")
+    rescanButton:SetSize(90, 26)
+    rescanButton:SetText("Rescan")
     rescanButton:SetPoint("RIGHT", characterCard, "RIGHT", -12, 0)
     rescanButton:SetScript("OnClick", function()
         local success, result = ATA:ScanCurrentCharacter()
@@ -1016,88 +1160,11 @@ local function CreateReportFrame()
     )
     UpdateExpansionContentHeight()
 
-    local expansionScrollBar = CreateFrame("Frame", nil, contentRow, "BackdropTemplate")
-    expansionScrollBar:SetWidth(10)
-    expansionScrollBar:SetPoint("TOPLEFT", expansionScroll, "TOPRIGHT", 4, 0)
-    expansionScrollBar:SetPoint("BOTTOMLEFT", expansionScroll, "BOTTOMRIGHT", 4, 0)
-    expansionScrollBar:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 0, right = 0, top = 0, bottom = 0 },
-    })
-    expansionScrollBar:SetBackdropColor(0.035, 0.045, 0.055, 1)
-    expansionScrollBar:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.divider))
-    expansionScrollBar:Hide()
-
-    local expansionScrollThumb = CreateFrame("Button", nil, expansionScrollBar, "BackdropTemplate")
-    expansionScrollThumb:SetWidth(8)
-    expansionScrollThumb:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
-    expansionScrollThumb:SetBackdropColor(unpack(ATA.UI.theme.colors.goldDark))
-    expansionScrollThumb:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.gold))
-    expansionScrollThumb:RegisterForDrag("LeftButton")
-
-    local function UpdateExpansionScrollThumb()
-        if frame.activeTab and frame.activeTab ~= "tracking" then
-            expansionScrollThumb:Hide()
-            expansionScrollBar:Hide()
-            return
-        end
-        local viewportHeight = expansionScroll:GetHeight()
-        local contentHeight = expansionContent:GetHeight()
-        local scrollRange = expansionScroll:GetVerticalScrollRange()
-        if viewportHeight <= 0 or contentHeight <= viewportHeight or scrollRange <= 0 then
-            expansionScrollThumb:Hide()
-            expansionScrollBar:Hide()
-            return
-        end
-
-        expansionScrollBar:Show()
-        expansionScrollThumb:Show()
-        local trackHeight = expansionScrollBar:GetHeight()
-        local thumbHeight = math.max(28, trackHeight * viewportHeight / contentHeight)
-        local thumbTravel = math.max(0, trackHeight - thumbHeight)
-        local scrollFraction = expansionScroll:GetVerticalScroll() / scrollRange
-        expansionScrollThumb:SetHeight(thumbHeight)
-        expansionScrollThumb:ClearAllPoints()
-        expansionScrollThumb:SetPoint("TOP", expansionScrollBar, "TOP", 0, -thumbTravel * scrollFraction)
-    end
-
-    expansionScroll:SetScript("OnVerticalScroll", UpdateExpansionScrollThumb)
-    expansionScroll:SetScript("OnShow", UpdateExpansionScrollThumb)
-    expansionScroll:SetScript("OnMouseWheel", function(self, delta)
-        local scrollRange = self:GetVerticalScrollRange()
-        self:SetVerticalScroll(math.max(0, math.min(scrollRange, self:GetVerticalScroll() - delta * ROW_HEIGHT)))
-    end)
-    expansionScroll:SetScript("OnSizeChanged", UpdateExpansionScrollThumb)
-    expansionContent:SetScript("OnSizeChanged", UpdateExpansionScrollThumb)
-
-    expansionScrollThumb:SetScript("OnDragStart", function(self)
-        self:SetScript("OnUpdate", function()
-            local scale = expansionScrollBar:GetEffectiveScale()
-            local cursorY = select(2, GetCursorPosition()) / scale
-            local trackTop = expansionScrollBar:GetTop()
-            local trackHeight = expansionScrollBar:GetHeight()
-            local thumbHeight = self:GetHeight()
-            local thumbTravel = trackHeight - thumbHeight
-            local scrollRange = expansionScroll:GetVerticalScrollRange()
-            if thumbTravel <= 0 or scrollRange <= 0 then
-                return
-            end
-
-            local thumbOffset = math.max(0, math.min(thumbTravel, trackTop - cursorY - (thumbHeight / 2)))
-            expansionScroll:SetVerticalScroll(scrollRange * thumbOffset / thumbTravel)
-        end)
-    end)
-    expansionScrollThumb:SetScript("OnDragStop", function(self)
-        self:SetScript("OnUpdate", nil)
-    end)
-    UpdateExpansionScrollThumb()
+    local expansionScrollBar, UpdateExpansionScrollThumb = ATA.UI.CreateBlizzardScrollBar(
+        contentRow, expansionScroll, "AltTrackingAssistantTrackingScrollBar", ROW_HEIGHT)
+    expansionScrollBar:SetPoint("TOPLEFT", expansionScroll, "TOPRIGHT", 3, -16)
+    expansionScrollBar:SetPoint("BOTTOMLEFT", expansionScroll, "BOTTOMRIGHT", 3, 16)
+    expansionContent:HookScript("OnSizeChanged", UpdateExpansionScrollThumb)
 
     local rosterCard = CreateCard(contentRow, 266, 1)
     rosterCard:SetPoint("TOPLEFT", contentRow, "TOPLEFT", 672, 0)
@@ -1133,7 +1200,7 @@ local function CreateReportFrame()
 
     local rosterScroll = CreateFrame("ScrollFrame", nil, rosterCard)
     rosterScroll:SetPoint("TOPLEFT", rosterDivider, "BOTTOMLEFT", 0, -4)
-    rosterScroll:SetPoint("BOTTOMRIGHT", rosterCard, "BOTTOMRIGHT", -10, 10)
+    rosterScroll:SetPoint("BOTTOMRIGHT", rosterCard, "BOTTOMRIGHT", -30, 10)
     rosterScroll:EnableMouseWheel(true)
     rosterScroll:SetClipsChildren(true)
     rosterScroll:SetScript("OnMouseWheel", function(self, delta)
@@ -1142,90 +1209,19 @@ local function CreateReportFrame()
         self:SetVerticalScroll(math.max(0, math.min(maximum, current - (delta * ROSTER_ROW_HEIGHT))))
     end)
 
-    local rosterScrollBar = CreateFrame("Frame", nil, rosterCard, "BackdropTemplate")
-    rosterScrollBar:SetWidth(8)
-    rosterScrollBar:SetPoint("TOPLEFT", rosterScroll, "TOPRIGHT", 1, 0)
-    rosterScrollBar:SetPoint("BOTTOMLEFT", rosterScroll, "BOTTOMRIGHT", 1, 0)
-    rosterScrollBar:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 0, right = 0, top = 0, bottom = 0 },
-    })
-    rosterScrollBar:SetBackdropColor(0.035, 0.045, 0.055, 1)
-    rosterScrollBar:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.divider))
-    rosterScrollBar:Hide()
-
-    local rosterScrollThumb = CreateFrame("Button", nil, rosterScrollBar, "BackdropTemplate")
-    rosterScrollThumb:SetWidth(6)
-    rosterScrollThumb:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
-    rosterScrollThumb:SetBackdropColor(unpack(ATA.UI.theme.colors.goldDark))
-    rosterScrollThumb:SetBackdropBorderColor(unpack(ATA.UI.theme.colors.gold))
-    rosterScrollThumb:RegisterForDrag("LeftButton")
-
     local rosterContent = CreateFrame("Frame", nil, rosterScroll)
     rosterContent:SetSize(1, 1)
     rosterScroll:SetScrollChild(rosterContent)
-
-    local function UpdateRosterContentWidth(width)
+    local rosterScrollBar, UpdateRosterScrollThumb = ATA.UI.CreateBlizzardScrollBar(
+        rosterCard, rosterScroll, "AltTrackingAssistantRosterScrollBar", ROSTER_ROW_HEIGHT)
+    rosterScrollBar:SetPoint("TOPLEFT", rosterScroll, "TOPRIGHT", 2, -16)
+    rosterScrollBar:SetPoint("BOTTOMLEFT", rosterScroll, "BOTTOMRIGHT", 2, 16)
+    local rosterScrollThumb = rosterScrollBar:GetThumbTexture()
+    rosterScroll:HookScript("OnSizeChanged", function(_, width)
         rosterContent:SetWidth(math.max(1, width))
-    end
-
-    local function UpdateRosterScrollThumb()
-        local viewportHeight = rosterScroll:GetHeight()
-        local contentHeight = rosterContent:GetHeight()
-        local scrollRange = rosterScroll:GetVerticalScrollRange()
-        if viewportHeight <= 0 or contentHeight <= viewportHeight or scrollRange <= 0 then
-            rosterScrollThumb:Hide()
-            rosterScrollBar:Hide()
-            return
-        end
-
-        rosterScrollBar:Show()
-        rosterScrollThumb:Show()
-        local trackHeight = rosterScrollBar:GetHeight()
-        local thumbHeight = math.max(24, trackHeight * viewportHeight / contentHeight)
-        local thumbTravel = math.max(0, trackHeight - thumbHeight)
-        local scrollFraction = rosterScroll:GetVerticalScroll() / scrollRange
-        rosterScrollThumb:SetHeight(thumbHeight)
-        rosterScrollThumb:ClearAllPoints()
-        rosterScrollThumb:SetPoint("TOP", rosterScrollBar, "TOP", 0, -thumbTravel * scrollFraction)
-    end
-
-    rosterScroll:SetScript("OnVerticalScroll", UpdateRosterScrollThumb)
-    rosterScroll:SetScript("OnShow", UpdateRosterScrollThumb)
-    rosterScroll:SetScript("OnSizeChanged", function(_, width)
-        UpdateRosterContentWidth(width)
-        UpdateRosterScrollThumb()
     end)
-    rosterContent:SetScript("OnSizeChanged", UpdateRosterScrollThumb)
-    UpdateRosterContentWidth(rosterScroll:GetWidth())
-
-    rosterScrollThumb:SetScript("OnDragStart", function(self)
-        self:SetScript("OnUpdate", function()
-            local scale = rosterScrollBar:GetEffectiveScale()
-            local cursorY = select(2, GetCursorPosition()) / scale
-            local trackTop = rosterScrollBar:GetTop()
-            local trackHeight = rosterScrollBar:GetHeight()
-            local thumbHeight = self:GetHeight()
-            local thumbTravel = trackHeight - thumbHeight
-            local scrollRange = rosterScroll:GetVerticalScrollRange()
-            if thumbTravel <= 0 or scrollRange <= 0 then
-                return
-            end
-
-            local thumbOffset = math.max(0, math.min(thumbTravel, trackTop - cursorY - (thumbHeight / 2)))
-            rosterScroll:SetVerticalScroll(scrollRange * thumbOffset / thumbTravel)
-        end)
-    end)
-    rosterScrollThumb:SetScript("OnDragStop", function(self)
-        self:SetScript("OnUpdate", nil)
-    end)
+    rosterContent:HookScript("OnSizeChanged", UpdateRosterScrollThumb)
+    rosterContent:SetWidth(math.max(1, rosterScroll:GetWidth()))
 
     local notesPanel = ATA.CreateNotesPanel(contentRow, {
         CreateCard = CreateCard,
@@ -1237,8 +1233,9 @@ local function CreateReportFrame()
     notesPanel:Hide()
 
     local professionsPanel = ATA.CreateProfessionsPanel(contentRow, {
+        CreateCard = CreateCard,
         CreateThemedButton = CreateThemedButton,
-        CreateRoundedProgressBar = CreateRoundedProgressBar,
+        CreateProfessionProgressBar = CreateProfessionProgressBar,
     })
     professionsPanel:SetPoint("TOPLEFT", contentRow, "TOPLEFT", 0, -30)
     professionsPanel:SetPoint("RIGHT", rosterCard, "LEFT", -10, 0)
@@ -1259,20 +1256,14 @@ local function CreateReportFrame()
             UpdateExpansionScrollThumb()
         end
         for key, button in pairs(tabButtons) do
-            local active = key == tab
-            button.label:SetTextColor(unpack(active and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.mutedText))
-            button:SetBackdropBorderColor(unpack(active and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.goldDark))
+            button.selected = key == tab
+            button:UpdateAppearance()
         end
         ATA:UpdateReport()
     end
     for index, info in ipairs({ { "tracking", "Tracking" }, { "professions", "Professions" }, { "notes", "Notes" } }) do
-        local button = CreateThemedButton(contentRow, info[2], 100, 24)
+        local button = CreateThemedTab(contentRow, info[2], 100, 24)
         button:SetPoint("TOPLEFT", contentRow, "TOPLEFT", (index - 1) * 106, 0)
-        button:SetScript("OnLeave", function(self)
-            local active = frame.activeTab == info[1]
-            self:SetBackdropColor(0.12, 0.16, 0.20, 1)
-            self:SetBackdropBorderColor(unpack(active and ATA.UI.theme.colors.gold or ATA.UI.theme.colors.goldDark))
-        end)
         button:SetScript("OnClick", function()
             SelectTab(info[1])
         end)
@@ -1581,9 +1572,9 @@ function ATA:UpdateReport()
         row.completionText:SetTextColor(red, green, blue)
 
         if entry.key == selectedKey then
-            row.background:SetVertexColor(0.28, 0.20, 0.34, 0.9)
+            row.background:SetVertexColor(unpack(ATA.UI.theme.colors.rosterSelected))
         else
-            row.background:SetVertexColor(0.08, 0.10, 0.13, 0.8)
+            row.background:SetVertexColor(unpack(ATA.UI.theme.colors.rosterRow))
         end
         row:Show()
         rosterContentHeight = rosterContentHeight + ROSTER_ROW_HEIGHT

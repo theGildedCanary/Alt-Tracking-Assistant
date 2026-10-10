@@ -38,6 +38,8 @@ TRACKER_COLUMNS = {
 }
 
 DEFAULTS = {
+    "professionBarVersion": 1,
+    "themeVersion": 1,
     "font": {"family": "Montserrat", "bodySize": 9, "titleSize": 7, "bold": True, "titleBold": True,
              "titleSpacing": 2, "dateSpacing": 1},
     "rowHeight": 24,
@@ -59,7 +61,7 @@ DEFAULTS = {
         "stripe": theme.PANEL_ALT,
         "gridLine": theme.DIVIDER,
         "separator": theme.GOLD,
-        "headerBg": "#1E213E",
+        "headerBg": "#30291f",
         "baseTitle": theme.GOLD,
         "trackerTitle": "#ffffff",
         "mainName": theme.GOLD,
@@ -67,7 +69,7 @@ DEFAULTS = {
         "factionText": "#000000",
         "genderText": "#2b2b2b",
         "classText": "#000000",
-        "professionProgress": "#331E53",
+        "professionProgress": "#3F64B5",
     },
     "factionColors": dict(theme.FACTION_COLORS),
     "genderColors": {"M": "#8fb3e0", "F": "#eba0bd"},
@@ -144,6 +146,16 @@ def normalize(raw):
             value = stored.get(key)
             if isinstance(value, str) and HEX.match(value):
                 fmt[group][key] = value.lower()
+
+    # Older versions saved the purple default along with all other colors.
+    if raw.get("themeVersion") != 1:
+        for key, old in {"text": "#ebf0fa", "background": "#11161c", "stripe": "#161d25",
+                         "gridLine": "#455766", "headerBg": "#1e213e"}.items():
+            if fmt["colors"][key].lower() == old:
+                fmt["colors"][key] = DEFAULTS["colors"][key]
+    # Upgrade that legacy value once; current settings can still choose purple.
+    if raw.get("professionBarVersion") != 1 and fmt["colors"]["professionProgress"].lower() == "#331e53":
+        fmt["colors"]["professionProgress"] = DEFAULTS["colors"]["professionProgress"]
 
     stored_trackers = raw.get("trackerColumns")
     stored_trackers = stored_trackers if isinstance(stored_trackers, dict) else {}

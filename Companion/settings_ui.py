@@ -1,3 +1,4 @@
+from widgets import Button, Section, caption_image
 """Settings tab: Main Selection, Tracking and Formatting pages, chosen from a list on the left."""
 
 import copy
@@ -58,8 +59,8 @@ class SettingsTab(ttk.Frame):
         content.pack(side="left", fill="both", expand=True)
 
         self.bar = ttk.Frame(content, padding=(8, 6))
-        ttk.Button(self.bar, text="Save to addon", command=self._save).pack(side="left")
-        ttk.Button(self.bar, text="Revert", command=self._revert).pack(side="left", padx=6)
+        Button(self.bar, text="Save to addon", command=self._save).pack(side="left")
+        Button(self.bar, text="Revert", command=self._revert).pack(side="left", padx=6)
         ttk.Label(self.bar, textvariable=self.status).pack(side="left", padx=10)
 
         self.holder = ttk.Frame(content)
@@ -74,9 +75,13 @@ class SettingsTab(ttk.Frame):
         self.format_panel.pack(fill="both", expand=True)
 
         self.page_var = tk.StringVar(value=PAGES[0])
+        self._nav_images = []
         for name in PAGES:
+            import theme
+            image = caption_image(nav, name, theme.GOLD if ui_theme != "Light Mode" else "#000000")
+            self._nav_images.append(image)
             ttk.Radiobutton(
-                nav, text=name, value=name, variable=self.page_var, style="Toolbutton", width=16,
+                nav, text=name, image=image, compound="none", value=name, variable=self.page_var, style="Toolbutton", width=16,
                 command=self._show_page,
             ).pack(fill="x", pady=2)
 
@@ -87,7 +92,7 @@ class SettingsTab(ttk.Frame):
         theme_picker = ttk.Combobox(
             nav,
             textvariable=self.ui_theme_var,
-            values=("Light Mode", "Dark Mode"),
+            values=("WoW Mode", "Light Mode", "Dark Mode"),
             state="readonly",
             width=14,
         )
@@ -172,7 +177,7 @@ class SettingsTab(ttk.Frame):
         return sorted(entries, key=lambda e: e[0].lower())
 
     def _section(self, page, title):
-        box = ttk.LabelFrame(self.pages[page].inner, text=title, padding=10)
+        box = Section(self.pages[page].inner, text=title, padding=10)
         box.pack(fill="x", pady=(0, 12))
         return box
 
@@ -180,7 +185,7 @@ class SettingsTab(ttk.Frame):
         for page in ("Main Selection", "Tracking"):
             for child in self.pages[page].inner.winfo_children():
                 child.destroy()
-        expansion_page = ttk.LabelFrame(self.pages["Tracking"].inner, text="Expansions", padding=10)
+        expansion_page = Section(self.pages["Tracking"].inner, text="Expansions", padding=10)
         expansion_page.pack(fill="both", expand=True)
         self.tracking_pages = {"Expansions": expansion_page}
         mains = self.settings["characterMains"]
@@ -214,8 +219,8 @@ class SettingsTab(ttk.Frame):
         footer.pack(side="bottom", fill="x")
         actions = ttk.Frame(footer)
         actions.pack(side="right", anchor="e")
-        ttk.Button(actions, text="Save to addon", command=self._save).pack(side="left", padx=(0, 6))
-        ttk.Button(actions, text="Revert", command=self._revert).pack(side="left")
+        Button(actions, text="Save to addon", command=self._save).pack(side="left", padx=(0, 6))
+        Button(actions, text="Revert", command=self._revert).pack(side="left")
         ttk.Label(footer, textvariable=self.status, wraplength=480).pack(side="left", fill="x", expand=True, padx=(0, 12))
         options = ttk.Frame(box)
         options.pack(side="top", fill="both", expand=True)

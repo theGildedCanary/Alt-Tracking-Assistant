@@ -17,9 +17,13 @@ Headless: `python app.py --export "<WoW folder>" "<output.xlsx | output.csv>"`
 
 ## Professions tab
 
+**Settings → UI theme → WoW Mode** uses the addon's muted gold and warm brown palette, original selected-tab fade, textured profession headings, and red action controls. It is the default for new installations; Dark Mode also uses the warm palette. Light Mode remains available. Old default roster colors migrate to the warm palette while custom colors are preserved.
+
 The Companion Professions dashboard has a GUID-based character picker, saved per-character profession selections, removable sidebar entries, and collapsible expansion progress bars. Select a character, add them, and check the professions you want to track. Tracked professions are highlighted on the roster when Profession Highlight is enabled.
 
-**Settings → Formatting → Colors → Profession progress bars** controls the bar color (default `#331E53`). Font family, body/title sizes, and bold settings also update the Professions tab immediately.
+Profession progress bars display the original profession-specific WoW artwork and its two-second fill animation, including Alchemy's purple glow and Tailoring's blue-and-gold threads. These images were extracted from the installed WoW 12.1.0.69933 archives and cropped using that build's atlas coordinates. Font family, body/title sizes, and bold settings still update immediately. The fills retain Blizzard's original colors; the legacy profession color setting no longer tints them.
+
+All 13 professions with dedicated Blizzard bar artwork are included. Archaeology uses Blizzard's default blue artwork because this build has no dedicated Archaeology fill. ATA references the corresponding native atlases in game. `assets/profession_bars/manifest.json` records texture IDs, crop coordinates, source hashes, and the build. `../scripts/extract-profession-art.py` reproduces the PNG conversion from extracted BLP files and atlas CSV metadata.
 
 Use **Settings → Roster → Columns** to show or hide the five profession columns, reorder columns, and change titles and alignment. **Profession Highlight** toggles gold shading for tracked professions. **Main Highlight** toggles main name coloring (gold by default) and bold main rows.
 

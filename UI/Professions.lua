@@ -1,10 +1,10 @@
 local _, ATA = ...
 
 function ATA.CreateProfessionsPanel(parent, helpers)
-    local panel = CreateFrame("Frame", nil, parent)
+    local panel = helpers.CreateCard(parent, 650, 1)
     local scroll = CreateFrame("ScrollFrame", nil, panel)
-    scroll:SetPoint("TOPLEFT", 0, 0)
-    scroll:SetPoint("BOTTOMRIGHT", 0, 0)
+    scroll:SetPoint("TOPLEFT", 8, -8)
+    scroll:SetPoint("BOTTOMRIGHT", -28, 8)
     scroll:SetClipsChildren(true)
     scroll:EnableMouseWheel(true)
     local content = CreateFrame("Frame", nil, scroll)
@@ -12,51 +12,14 @@ function ATA.CreateProfessionsPanel(parent, helpers)
     scroll:SetScrollChild(content)
     local expanded, sections = {}, {}
     local colors = ATA.UI.theme.colors
-    local track = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-    track:SetWidth(8)
-    track:SetPoint("TOPRIGHT")
-    track:SetPoint("BOTTOMRIGHT")
-    track:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1, insets = { left = 0, right = 0, top = 0, bottom = 0 } })
-    track:SetBackdropColor(0.035, 0.045, 0.055, 1)
-    track:SetBackdropBorderColor(unpack(colors.divider))
-    local thumb = CreateFrame("Button", nil, track, "BackdropTemplate")
-    thumb:SetWidth(6)
-    thumb:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-    thumb:SetBackdropColor(unpack(colors.goldDark))
-    thumb:SetBackdropBorderColor(unpack(colors.gold))
-    thumb:RegisterForDrag("LeftButton")
-    local function UpdateScroll()
-        local viewport, total = scroll:GetHeight(), content:GetHeight()
-        local range = math.max(0, total - viewport)
-        local overflow = viewport > 0 and range > 0
-        track:SetShown(overflow)
-        thumb:SetShown(overflow)
-        content:SetWidth(math.max(1, scroll:GetWidth() - (overflow and 10 or 0)))
-        if not overflow then return end
-        local height = math.min(track:GetHeight(), math.max(24, track:GetHeight() * viewport / total))
-        thumb:SetHeight(height)
-        thumb:ClearAllPoints()
-        thumb:SetPoint("TOP", track, "TOP", 0, -(track:GetHeight() - height) * math.min(1, scroll:GetVerticalScroll() / range))
-    end
-    scroll:SetScript("OnVerticalScroll", UpdateScroll)
-    scroll:SetScript("OnSizeChanged", UpdateScroll)
-    scroll:SetScript("OnShow", UpdateScroll)
-    scroll:SetScript("OnMouseWheel", function(self, delta)
-        self:SetVerticalScroll(math.max(0, math.min(self:GetVerticalScrollRange(), self:GetVerticalScroll() - delta * 34)))
+    local track, UpdateScroll = ATA.UI.CreateBlizzardScrollBar(
+        panel, scroll, "AltTrackingAssistantProfessionsScrollBar", 34)
+    track:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -8, -24)
+    track:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, 24)
+    scroll:HookScript("OnSizeChanged", function()
+        content:SetWidth(math.max(1, scroll:GetWidth()))
     end)
-    thumb:SetScript("OnDragStart", function(self)
-        self:SetScript("OnUpdate", function()
-            local travel = track:GetHeight() - self:GetHeight()
-            if travel <= 0 then return end
-            local cursorY = select(2, GetCursorPosition()) / track:GetEffectiveScale()
-            local offset = math.max(0, math.min(travel, track:GetTop() - cursorY - self:GetHeight() / 2))
-            scroll:SetVerticalScroll(scroll:GetVerticalScrollRange() * offset / travel)
-        end)
-    end)
-    thumb:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
-    thumb:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil) end)
+    content:HookScript("OnSizeChanged", UpdateScroll)
 
     for index, definition in ipairs(ATA.professionSlots) do
         local section = { rows = {} }
@@ -109,18 +72,18 @@ function ATA.CreateProfessionsPanel(parent, helpers)
                 for rowIndex = 1, count do
                     local row = section.rows[rowIndex]
                     if not row then
-                        row = helpers.CreateRoundedProgressBar(content, 22)
+                        row = helpers.CreateProfessionProgressBar(content, 22)
                         row:SetWidth(590)
                         row:SetScript("OnSizeChanged", function(self)
-                            self:SetValue(self.fraction or 0, 130 / 255, 17 / 255, 193 / 255)
+                            self:SetValue(self.fraction or 0)
                         end)
                         -- Keep the label above the rounded bar's fill frame.
                         row.labelFrame = CreateFrame("Frame", nil, row)
                         row.labelFrame:SetAllPoints()
                         row.labelFrame:SetFrameLevel(row:GetFrameLevel() + 2)
                         row.text = row.labelFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-                        row.text:SetPoint("LEFT", 8, 0)
-                        row.text:SetPoint("RIGHT", -8, 0)
+                        row.text:SetPoint("LEFT", 8, row:GetHeight() * 2.5 / 29)
+                        row.text:SetPoint("RIGHT", -8, row:GetHeight() * 2.5 / 29)
                         row.text:SetJustifyH("CENTER")
                         row.text:SetShadowColor(0, 0, 0, 1)
                         row.text:SetShadowOffset(1, -1)
@@ -131,7 +94,8 @@ function ATA.CreateProfessionsPanel(parent, helpers)
                     row:SetPoint("RIGHT", content, "RIGHT", -12, 0)
                     local fraction = tier and tier.maxSkillLevel > 0 and tier.skillLevel / tier.maxSkillLevel or 0
                     row.fraction = fraction
-                    row:SetValue(fraction, 130 / 255, 17 / 255, 193 / 255)
+                    row:SetProfession(profession and profession.skillLineID)
+                    row:SetValue(fraction)
                     row.text:SetText(tier and ((tier.name or "Profession skill") .. "   " .. tier.skillLevel .. " / " .. tier.maxSkillLevel)
                         or (profession and "Expansion skills unavailable. Open this profession in game and rescan."
                             or (record and record.professions and "This profession has not been learned." or "Log in to this character and rescan to collect professions.")))

@@ -1,3 +1,4 @@
+from widgets import Button, Section
 """Formatting page of the Settings tab: every visual option of the Companion roster."""
 
 import copy
@@ -21,7 +22,6 @@ COLOR_LABELS = [
     ("factionText", "Faction letter"),
     ("genderText", "Gender letter"),
     ("classText", "Class text (on class color)"),
-    ("professionProgress", "Profession progress bars"),
 ]
 ALIGN_LABELS = {"w": "Left", "center": "Center", "e": "Right"}
 CLASS_NAMES = {
@@ -164,7 +164,7 @@ class FormatPanel(ttk.Frame):
         return frame
 
     def _section(self, title):
-        box = ttk.LabelFrame(self, text=title, padding=10)
+        box = Section(self, text=title, padding=10)
         box.pack(fill="x", pady=(0, 12))
         return box
 
@@ -184,7 +184,7 @@ class FormatPanel(ttk.Frame):
         ttk.Label(top, text="Changes here apply to the Roster immediately and are not sent to the addon.").pack(
             side="left"
         )
-        ttk.Button(top, text="Reset to defaults", command=self._reset).pack(side="right")
+        Button(top, text="Reset to defaults", command=self._reset).pack(side="right")
 
         families = sorted({f for f in tkfont.families(self) if not f.startswith("@")}, key=str.lower)
         if self.fmt["font"]["family"] not in families:
@@ -304,8 +304,8 @@ class FormatPanel(ttk.Frame):
             self._check(box, "", ("columns", index, "frozen")).grid(row=row, column=5)
             arrows = ttk.Frame(box)
             arrows.grid(row=row, column=6, padx=6)
-            ttk.Button(arrows, text="\u25b2", width=3, command=lambda i=index: self._move(i, -1)).pack(side="left")
-            ttk.Button(arrows, text="\u25bc", width=3, command=lambda i=index: self._move(i, 1)).pack(side="left")
+            Button(arrows, text="\u25b2", width=3, command=lambda i=index: self._move(i, -1)).pack(side="left")
+            Button(arrows, text="\u25bc", width=3, command=lambda i=index: self._move(i, 1)).pack(side="left")
         ttk.Label(
             box,
             text="Frozen columns stay in place while the tracker columns scroll. Tracker columns always follow these.",
@@ -338,6 +338,7 @@ class RosterPanel(FormatPanel):
         box = self._section("Highlights")
         self._check(box, "Profession Highlight", ("professionHighlight",)).pack(anchor="w")
         self._check(box, "Main Highlight", ("mainHighlight",)).pack(anchor="w", pady=(6, 0))
+        self._check(box, "Italicize main character rows", ("italicMainRows",)).pack(anchor="w", pady=(6, 0))
         ttk.Label(box, text="Profession Highlight colors tracked professions gold. Main Highlight colors main names gold and bolds their rows.", wraplength=650).pack(anchor="w", pady=(8, 0))
         self.columns_box = self._section("Columns (order, titles, alignment)")
         self._build_columns()
@@ -361,7 +362,7 @@ class RosterPanel(FormatPanel):
             arrows = ttk.Frame(box)
             arrows.grid(row=row, column=3, padx=6)
             for step, label in ((-1, "\u25b2"), (1, "\u25bc")):
-                ttk.Button(arrows, text=label, width=3, command=lambda i=index, s=step: self._move_expansion(i, s)).pack(side="left")
+                Button(arrows, text=label, width=3, command=lambda i=index, s=step: self._move_expansion(i, s)).pack(side="left")
 
     def _move_expansion(self, index, step):
         order = self.fmt["expansionOrder"]
@@ -378,7 +379,7 @@ class RosterPanel(FormatPanel):
         ttk.Label(self.trackers_box, text="Rename, show or hide, and reorder trackers within each expansion.").pack(anchor="w", pady=(0, 8))
         self.tracker_boxes = {}
         for expansion in self.fmt["expansionOrder"]:
-            box = ttk.LabelFrame(self.trackers_box, text=EXPANSION_NAMES.get(expansion, expansion), padding=8)
+            box = Section(self.trackers_box, text=EXPANSION_NAMES.get(expansion, expansion), padding=8)
             box.pack(fill="x", pady=(0, 8))
             self.tracker_boxes[expansion] = box
             self._build_tracker_group(expansion)
@@ -399,7 +400,7 @@ class RosterPanel(FormatPanel):
             arrows = ttk.Frame(box)
             arrows.grid(row=row, column=3, padx=6)
             for step, label in ((-1, "\u25b2"), (1, "\u25bc")):
-                ttk.Button(arrows, text=label, width=3,
+                Button(arrows, text=label, width=3,
                            state="normal" if 0 <= index + step < len(specs) else "disabled",
                            command=lambda e=expansion, i=index, s=step: self._move_tracker(e, i, s)).pack(side="left")
 

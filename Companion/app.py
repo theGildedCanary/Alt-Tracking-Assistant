@@ -1,3 +1,4 @@
+from widgets import Button, Section
 """Alt Tracking Assistant Companion: exports addon data to a spreadsheet (.xlsx or .csv)."""
 
 import csv
@@ -552,7 +553,7 @@ def run_gui():
     except tk.TclError:
         pass
     root.geometry("1280x760")
-    ui_theme_var = tk.StringVar(value=config.get("ui_theme", "Light Mode"))
+    ui_theme_var = tk.StringVar(value=config.get("ui_theme", "WoW Mode"))
     theme.apply_ui_theme(root, ui_theme_var.get())
 
     import grid as grid_module
@@ -729,7 +730,7 @@ def run_gui():
     roster_status = tk.StringVar()
     toolbar = ttk.Frame(roster_tab, padding=(8, 6))
     toolbar.pack(fill="x")
-    ttk.Button(toolbar, text="Refresh", command=lambda: reload_roster()).pack(side="left")
+    Button(toolbar, text="Refresh", command=lambda: reload_roster()).pack(side="left")
     ttk.Label(toolbar, textvariable=roster_status).pack(side="left", padx=10)
     roster_grid = RosterGrid(roster_tab)
     roster_grid.pack(fill="both", expand=True)
@@ -758,12 +759,12 @@ def run_gui():
     row = 0
     ttk.Label(frame, text="WoW folder:").grid(row=row, column=0, sticky="w", pady=4)
     ttk.Entry(frame, textvariable=wow_var).grid(row=row, column=1, sticky="ew", padx=6)
-    ttk.Button(frame, text="Browse...", command=browse_wow).grid(row=row, column=2)
+    Button(frame, text="Browse...", command=browse_wow).grid(row=row, column=2)
 
     row += 1
     ttk.Label(frame, text="Local file (.xlsx or .csv):").grid(row=row, column=0, sticky="w", pady=4)
     ttk.Entry(frame, textvariable=out_var).grid(row=row, column=1, sticky="ew", padx=6)
-    ttk.Button(frame, text="Browse...", command=browse_output).grid(row=row, column=2)
+    Button(frame, text="Browse...", command=browse_output).grid(row=row, column=2)
 
     row += 1
     ttk.Label(frame, text="Addon data files found:").grid(row=row, column=0, columnspan=3, sticky="w", pady=(10, 2))
@@ -775,8 +776,8 @@ def run_gui():
     row += 1
     buttons = ttk.Frame(frame)
     buttons.grid(row=row, column=0, columnspan=3, sticky="ew", pady=10)
-    ttk.Button(buttons, text="Rescan", command=lambda: (refresh_files(), reload_roster())).pack(side="left")
-    ttk.Button(buttons, text="Export now", command=do_export).pack(side="left", padx=6)
+    Button(buttons, text="Rescan", command=lambda: (refresh_files(), reload_roster())).pack(side="left")
+    Button(buttons, text="Export now", command=do_export).pack(side="left", padx=6)
     ttk.Checkbutton(
         buttons, text="Auto-export when the addon data changes", variable=auto_var, command=persist
     ).pack(side="left", padx=10)

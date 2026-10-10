@@ -180,61 +180,11 @@ function ATA.CreateNotesPanel(parent, helpers)
     content:SetSize(CONTENT_WIDTH, 1)
     scroll:SetScrollChild(content)
 
-    -- Scrollbar for the whole page
-    local scrollBar = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-    scrollBar:SetWidth(10)
-    scrollBar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -12)
-    scrollBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -10, 12)
-    scrollBar:SetBackdrop(BOX_BACKDROP)
-    scrollBar:SetBackdropColor(0.035, 0.045, 0.055, 1)
-    scrollBar:SetBackdropBorderColor(unpack(colors.divider))
-    scrollBar:Hide()
-
-    local thumb = CreateFrame("Button", nil, scrollBar, "BackdropTemplate")
-    thumb:SetWidth(8)
-    thumb:SetBackdrop(BOX_BACKDROP)
-    thumb:SetBackdropColor(unpack(colors.goldDark))
-    thumb:SetBackdropBorderColor(unpack(colors.gold))
-    thumb:RegisterForDrag("LeftButton")
-
-    local function UpdateThumb()
-        local range = scroll:GetVerticalScrollRange()
-        local viewport = scroll:GetHeight()
-        if range <= 0 or viewport <= 0 then
-            scrollBar:Hide()
-            return
-        end
-        scrollBar:Show()
-        local track = scrollBar:GetHeight()
-        local thumbHeight = math.max(24, track * viewport / (viewport + range))
-        thumb:SetHeight(thumbHeight)
-        thumb:ClearAllPoints()
-        thumb:SetPoint("TOP", scrollBar, "TOP", 0, -(track - thumbHeight) * scroll:GetVerticalScroll() / range)
-    end
-
-    scroll:SetScript("OnVerticalScroll", UpdateThumb)
-    scroll:SetScript("OnScrollRangeChanged", UpdateThumb)
-    scroll:SetScript("OnSizeChanged", UpdateThumb)
-    scroll:SetScript("OnMouseWheel", function(self, delta)
-        local target = self:GetVerticalScroll() - delta * 40
-        self:SetVerticalScroll(math.max(0, math.min(self:GetVerticalScrollRange(), target)))
-    end)
-    thumb:SetScript("OnDragStart", function(self)
-        self:SetScript("OnUpdate", function()
-            local scale = scrollBar:GetEffectiveScale()
-            local cursorY = select(2, GetCursorPosition()) / scale
-            local travel = scrollBar:GetHeight() - self:GetHeight()
-            local range = scroll:GetVerticalScrollRange()
-            if travel <= 0 or range <= 0 then
-                return
-            end
-            local offset = math.max(0, math.min(travel, scrollBar:GetTop() - cursorY - self:GetHeight() / 2))
-            scroll:SetVerticalScroll(range * offset / travel)
-        end)
-    end)
-    thumb:SetScript("OnDragStop", function(self)
-        self:SetScript("OnUpdate", nil)
-    end)
+    local scrollBar, UpdateThumb = ATA.UI.CreateBlizzardScrollBar(
+        panel, scroll, "AltTrackingAssistantNotesScrollBar", 40)
+    scrollBar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -8, -28)
+    scrollBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, 28)
+    content:HookScript("OnSizeChanged", UpdateThumb)
 
     local function MakeDivider()
         local line = content:CreateTexture(nil, "ARTWORK")
@@ -248,7 +198,7 @@ function ATA.CreateNotesPanel(parent, helpers)
         local box = CreateFrame("Frame", nil, content, "BackdropTemplate")
         box:SetHeight(height)
         box:SetBackdrop(BOX_BACKDROP)
-        box:SetBackdropColor(0.035, 0.045, 0.055, 1)
+        box:SetBackdropColor(unpack(colors.control))
         box:SetBackdropBorderColor(unpack(colors.divider))
         return box
     end
@@ -270,7 +220,9 @@ function ATA.CreateNotesPanel(parent, helpers)
     subtitle:SetPoint("LEFT", todoTitle, "RIGHT", 10, -1)
     subtitle:SetTextColor(unpack(colors.mutedText))
 
-    local todoAddButton = helpers.CreateThemedButton(content, "Add", 60, 24)
+    local todoAddButton = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+    todoAddButton:SetSize(60, 24)
+    todoAddButton:SetText("Add")
     local todoInputBox = MakeBox(24)
     local todoInput = CreateFrame("EditBox", nil, todoInputBox)
     todoInput:SetPoint("TOPLEFT", todoInputBox, "TOPLEFT", 8, 0)
@@ -302,7 +254,7 @@ function ATA.CreateNotesPanel(parent, helpers)
         row.checkbox:SetSize(CHECKBOX_SIZE, CHECKBOX_SIZE)
         row.checkbox:SetPoint("TOPLEFT", row, "TOPLEFT", 2, -3)
         row.checkbox:SetBackdrop(BOX_BACKDROP)
-        row.checkbox:SetBackdropColor(0.035, 0.045, 0.055, 1)
+        row.checkbox:SetBackdropColor(unpack(colors.control))
         row.checkbox:SetBackdropBorderColor(unpack(colors.goldDark))
         row.checkbox.check = row.checkbox:CreateTexture(nil, "OVERLAY")
         row.checkbox.check:SetPoint("CENTER", 0, 0)
@@ -360,7 +312,9 @@ function ATA.CreateNotesPanel(parent, helpers)
         input:SetFocus()
     end)
 
-    local submitButton = helpers.CreateThemedButton(content, "Submit", 90, 26)
+    local submitButton = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+    submitButton:SetSize(90, 26)
+    submitButton:SetText("Submit")
     local status = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     status:SetJustifyH("LEFT")
 

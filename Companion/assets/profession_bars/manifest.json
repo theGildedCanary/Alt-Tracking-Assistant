@@ -1,0 +1,486 @@
+{
+  "build": "12.1.0.69933",
+  "source": "Extracted from installed WoW CASC archives",
+  "assets": {
+    "professions-skillbar-bg": {
+      "file": "professions-skillbar-bg.png",
+      "width": 451,
+      "height": 29,
+      "sourceFileDataID": 4417031,
+      "sourcePath": "interface/professions/professions.blp",
+      "sourceSHA256": "f06d8ad59191a94c932e51e5f0dec88ea0f675d4a458c0f45e88bb09f37104d2",
+      "sourceCrop": [
+        1360,
+        396,
+        451,
+        29
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "professions-skillbar-frame": {
+      "file": "professions-skillbar-frame.png",
+      "width": 451,
+      "height": 29,
+      "sourceFileDataID": 4417031,
+      "sourcePath": "interface/professions/professions.blp",
+      "sourceSHA256": "f06d8ad59191a94c932e51e5f0dec88ea0f675d4a458c0f45e88bb09f37104d2",
+      "sourceCrop": [
+        478,
+        587,
+        451,
+        29
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "professions-skillbar-mask": {
+      "file": "professions-skillbar-mask.png",
+      "width": 512,
+      "height": 512,
+      "sourceFileDataID": 4626279,
+      "sourcePath": "interface/professions/professionsskillbarmask.blp",
+      "sourceSHA256": "361288062430eb4a5556a736514305161b9b0ec5697345499b66f35aad53eb64",
+      "sourceCrop": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_fill_flipbook_blacksmithing": {
+      "file": "skillbar_fill_flipbook_blacksmithing.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4683154,
+      "sourcePath": "interface/professions/professionsfxblacksmithing.blp",
+      "sourceSHA256": "0e4eda082a7ecf53758b979e42b076199c45bfc7a903507a1e93865b7eb3f1d5",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_enchanting": {
+      "file": "skillbar_fill_flipbook_enchanting.png",
+      "width": 1712,
+      "height": 1258,
+      "sourceFileDataID": 4693223,
+      "sourcePath": "interface/professions/professionsfxenchanting.blp",
+      "sourceSHA256": "74a44ac053e4e02f36a21f464f1f15615b441020032ac9f0a87fde72f077324a",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1258
+      ],
+      "columns": 2,
+      "rows": 37
+    },
+    "skillbar_fill_flipbook_tailoring": {
+      "file": "skillbar_fill_flipbook_tailoring.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4693230,
+      "sourcePath": "interface/professions/professionsfxtailoring.blp",
+      "sourceSHA256": "b92f58e9a85bd2421a1fffdedb651e98f793ca1b35416d8b57bc7381895931b7",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_jewelcrafting": {
+      "file": "skillbar_fill_flipbook_jewelcrafting.png",
+      "width": 1712,
+      "height": 748,
+      "sourceFileDataID": 4693237,
+      "sourcePath": "interface/professions/professionsfxjewelcrafting.blp",
+      "sourceSHA256": "5189ab4fc9cfae156e396cad30b55a4ce3bd5895e9d9db102948af62765fabb0",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        748
+      ],
+      "columns": 2,
+      "rows": 22
+    },
+    "skillbar_fill_flipbook_alchemy": {
+      "file": "skillbar_fill_flipbook_alchemy.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4696956,
+      "sourcePath": "interface/professions/professionsfxalchemy.blp",
+      "sourceSHA256": "f1cfd5205e40391bd60f5fe9ee09b4084e0d256152f5846c9bd94c2cfb5f7ea6",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_leatherworking": {
+      "file": "skillbar_fill_flipbook_leatherworking.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4696971,
+      "sourcePath": "interface/professions/professionsfxleatherworking.blp",
+      "sourceSHA256": "bfb5cf3c7be8a201d518b46faae0b6d1d9595be09780a2228000bdf7792d57eb",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_defaultblue": {
+      "file": "skillbar_fill_flipbook_defaultblue.png",
+      "width": 880,
+      "height": 33,
+      "sourceFileDataID": 4417031,
+      "sourcePath": "interface/professions/professions.blp",
+      "sourceSHA256": "f06d8ad59191a94c932e51e5f0dec88ea0f675d4a458c0f45e88bb09f37104d2",
+      "sourceCrop": [
+        478,
+        396,
+        880,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_fill_flipbook_cooking": {
+      "file": "skillbar_fill_flipbook_cooking.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4872261,
+      "sourcePath": "interface/professions/professionsfxcooking.blp",
+      "sourceSHA256": "8621058f23a650fc50286bf36a971f8d5cd1a4a062a2d2f1890a3bf992d9463a",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_engineering": {
+      "file": "skillbar_fill_flipbook_engineering.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4881558,
+      "sourcePath": "interface/professions/professionsfxengineering.blp",
+      "sourceSHA256": "73d9bdba1b4e2421e2590a4ab221b1b977d48ae09ab44a19f0ef649ae79f9163",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_herbalism": {
+      "file": "skillbar_fill_flipbook_herbalism.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4872270,
+      "sourcePath": "interface/professions/professionsfxherbalism.blp",
+      "sourceSHA256": "731b971103d27a5ba30759d11dfd3a9daea9c263138f39fdabcafe2d5af9e986",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_fishing": {
+      "file": "skillbar_fill_flipbook_fishing.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4881612,
+      "sourcePath": "interface/professions/professionsfxfishing.blp",
+      "sourceSHA256": "65df5ab48b175bcc6f81de25b68941e345e36634c159c07372e0ea54e55c86dc",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_inscription": {
+      "file": "skillbar_fill_flipbook_inscription.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4872264,
+      "sourcePath": "interface/professions/professionsfxinscription.blp",
+      "sourceSHA256": "9b7c2ac61ac9331e6ffe3c622a773623ea582d83461023b35450e2751a08a36c",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_mining": {
+      "file": "skillbar_fill_flipbook_mining.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4872225,
+      "sourcePath": "interface/professions/professionsfxmining.blp",
+      "sourceSHA256": "83443be9688018526e2dfa048cc8e59aeb4bac6d3826450bd9a1f45bde35ae76",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_fill_flipbook_skinning": {
+      "file": "skillbar_fill_flipbook_skinning.png",
+      "width": 1712,
+      "height": 1020,
+      "sourceFileDataID": 4872267,
+      "sourcePath": "interface/professions/professionsfxskinning.blp",
+      "sourceSHA256": "0602be20ea047e8ca722b639f917a4ec8b5311691c8fdddb05b0a1bf025d3d75",
+      "sourceCrop": [
+        1,
+        1,
+        1712,
+        1020
+      ],
+      "columns": 2,
+      "rows": 30
+    },
+    "skillbar_flare_alchemy": {
+      "file": "skillbar_flare_alchemy.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4696956,
+      "sourcePath": "interface/professions/professionsfxalchemy.blp",
+      "sourceSHA256": "f1cfd5205e40391bd60f5fe9ee09b4084e0d256152f5846c9bd94c2cfb5f7ea6",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_blacksmithing": {
+      "file": "skillbar_flare_blacksmithing.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4683154,
+      "sourcePath": "interface/professions/professionsfxblacksmithing.blp",
+      "sourceSHA256": "0e4eda082a7ecf53758b979e42b076199c45bfc7a903507a1e93865b7eb3f1d5",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_cooking": {
+      "file": "skillbar_flare_cooking.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4872261,
+      "sourcePath": "interface/professions/professionsfxcooking.blp",
+      "sourceSHA256": "8621058f23a650fc50286bf36a971f8d5cd1a4a062a2d2f1890a3bf992d9463a",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_enchanting": {
+      "file": "skillbar_flare_enchanting.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4693223,
+      "sourcePath": "interface/professions/professionsfxenchanting.blp",
+      "sourceSHA256": "74a44ac053e4e02f36a21f464f1f15615b441020032ac9f0a87fde72f077324a",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_engineering": {
+      "file": "skillbar_flare_engineering.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4881558,
+      "sourcePath": "interface/professions/professionsfxengineering.blp",
+      "sourceSHA256": "73d9bdba1b4e2421e2590a4ab221b1b977d48ae09ab44a19f0ef649ae79f9163",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_fishing": {
+      "file": "skillbar_flare_fishing.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4881612,
+      "sourcePath": "interface/professions/professionsfxfishing.blp",
+      "sourceSHA256": "65df5ab48b175bcc6f81de25b68941e345e36634c159c07372e0ea54e55c86dc",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_herbalism": {
+      "file": "skillbar_flare_herbalism.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4872270,
+      "sourcePath": "interface/professions/professionsfxherbalism.blp",
+      "sourceSHA256": "731b971103d27a5ba30759d11dfd3a9daea9c263138f39fdabcafe2d5af9e986",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_inscription": {
+      "file": "skillbar_flare_inscription.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4872264,
+      "sourcePath": "interface/professions/professionsfxinscription.blp",
+      "sourceSHA256": "9b7c2ac61ac9331e6ffe3c622a773623ea582d83461023b35450e2751a08a36c",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_jewelcrafting": {
+      "file": "skillbar_flare_jewelcrafting.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4693237,
+      "sourcePath": "interface/professions/professionsfxjewelcrafting.blp",
+      "sourceSHA256": "5189ab4fc9cfae156e396cad30b55a4ce3bd5895e9d9db102948af62765fabb0",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_leatherworking": {
+      "file": "skillbar_flare_leatherworking.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4696971,
+      "sourcePath": "interface/professions/professionsfxleatherworking.blp",
+      "sourceSHA256": "bfb5cf3c7be8a201d518b46faae0b6d1d9595be09780a2228000bdf7792d57eb",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_mining": {
+      "file": "skillbar_flare_mining.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4872225,
+      "sourcePath": "interface/professions/professionsfxmining.blp",
+      "sourceSHA256": "83443be9688018526e2dfa048cc8e59aeb4bac6d3826450bd9a1f45bde35ae76",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_skinning": {
+      "file": "skillbar_flare_skinning.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4872267,
+      "sourcePath": "interface/professions/professionsfxskinning.blp",
+      "sourceSHA256": "0602be20ea047e8ca722b639f917a4ec8b5311691c8fdddb05b0a1bf025d3d75",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    },
+    "skillbar_flare_tailoring": {
+      "file": "skillbar_flare_tailoring.png",
+      "width": 53,
+      "height": 33,
+      "sourceFileDataID": 4693230,
+      "sourcePath": "interface/professions/professionsfxtailoring.blp",
+      "sourceSHA256": "b92f58e9a85bd2421a1fffdedb651e98f793ca1b35416d8b57bc7381895931b7",
+      "sourceCrop": [
+        1715,
+        1,
+        53,
+        33
+      ],
+      "columns": 1,
+      "rows": 1
+    }
+  }
+}

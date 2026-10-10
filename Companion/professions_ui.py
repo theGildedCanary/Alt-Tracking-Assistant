@@ -1,3 +1,4 @@
+from widgets import Button, Section
 """Character-specific profession dashboard, backed by GUID selections."""
 
 import copy
@@ -9,6 +10,7 @@ from tkinter import font as tkfont
 import db
 import theme
 import roster_format
+from profession_art import NativeProfessionBar
 
 STATE_KEY = "profession_dashboard"
 SLOTS = ("primary", "secondary", "archaeology", "fishing", "cooking")
@@ -116,13 +118,29 @@ class SpacedHeading(tk.Canvas):
 
     def draw(self):
         self.delete("all")
+        if self.colors["background"] != theme.UI_THEMES["Light Mode"]["background"]:
+            from pathlib import Path
+            from PIL import Image, ImageTk, ImageDraw
+            width, height = max(1, self.winfo_width()), int(self.cget("height"))
+            if not hasattr(self, "_panel_texture"):
+                with Image.open(Path(theme.__file__).parent / "assets" / "theme" / "PanelBackground.png") as image:
+                    self._panel_texture = Image.blend(image.convert("RGB"), Image.new("RGB", image.size, theme.PANEL), .55)
+            panel = Image.new("RGBA", (width, height))
+            for x in range(0, width, 256):
+                panel.paste(self._panel_texture, (x, 0))
+            mask = Image.new("L", panel.size)
+            ImageDraw.Draw(mask).rounded_rectangle((0, 0, width-1, height-1), radius=5, fill=255)
+            panel.putalpha(mask)
+            ImageDraw.Draw(panel).rounded_rectangle((0, 0, width-1, height-1), radius=5, outline=self.colors["border"])
+            self._panel_photo = ImageTk.PhotoImage(panel, master=self)
+            self.create_image(0, 0, anchor="nw", image=self._panel_photo)
         spacing = self.winfo_fpixels("2p")
         length = sum(self.font.measure(ch) for ch in self.text) + spacing * max(0, len(self.text) - 1)
         x = max(8, (self.winfo_width() - length) / 2)
         for char in self.text:
             width = self.font.measure(char)
             self.create_text(x + width / 2, int(self.cget("height")) / 2,
-                             text=char, fill=self.colors["text"], font=self.font)
+                             text=char, fill=theme.GOLD if self.colors["background"] != theme.UI_THEMES["Light Mode"]["background"] else self.colors["text"], font=self.font)
             x += width + spacing
 
 
@@ -148,7 +166,7 @@ class ProfessionsTab(ttk.Frame):
         self.choice = tk.StringVar()
         self.picker = ttk.Combobox(sidebar, textvariable=self.choice, state="readonly", width=30)
         self.picker.grid(row=1, column=0, sticky="ew")
-        self.add_button = ttk.Button(sidebar, text="Add", command=self.add_character)
+        self.add_button = Button(sidebar, text="Add", command=self.add_character)
         self.add_button.grid(row=1, column=1, padx=(6, 0))
         ttk.Label(sidebar, textvariable=self.status, wraplength=300).grid(
             row=3, column=0, columnspan=2, sticky="w", pady=6)
@@ -171,7 +189,7 @@ class ProfessionsTab(ttk.Frame):
     def _style_checkboxes(self, colors):
         size = max(16, round(self.winfo_fpixels("12p")))
         label_gap = round(self.winfo_fpixels("5p"))
-        gold = "#FFD100"
+        gold = theme.GOLD
         self.checkbox_images = []
         for checked in (False, True):
             image = tk.PhotoImage(master=self, width=size + label_gap, height=size)
@@ -232,7 +250,7 @@ class ProfessionsTab(ttk.Frame):
             elif isinstance(child, ttk.Checkbutton):
                 child.configure(style="Professions.TCheckbutton")
             elif isinstance(child, ttk.Button):
-                child.configure(style="Professions.TButton")
+                child.configure(style="Order.TButton" if getattr(child, "square", False) else "TButton")
             elif isinstance(child, ttk.Combobox):
                 child.configure(font=self.body_font)
             elif isinstance(child, tk.Label):
@@ -304,7 +322,7 @@ class ProfessionsTab(ttk.Frame):
             name = (record.get("name") or "Unknown") if record else "Character unavailable"
             header = tk.Frame(self.sidebar.inner, bg=colors["selected"])
             header.pack(fill="x", pady=(0, 4))
-            ttk.Button(header, text="x", width=3, command=lambda guid=guid: self.remove_character(guid)).pack(side="right", padx=4)
+            Button(header, text="x", width=3, command=lambda guid=guid: self.remove_character(guid)).pack(side="right", padx=4)
             character_heading = SpacedHeading(header, self.title_font, {**colors, "control": colors["selected"]})
             character_heading.set_text(name)
             character_heading.pack(side="left", fill="x", expand=True, padx=6, pady=2)
@@ -330,7 +348,7 @@ class ProfessionsTab(ttk.Frame):
                       wraplength=500).pack(anchor="w", padx=12, pady=12)
         else:
             for group, cards in selected.items():
-                section = ttk.LabelFrame(self.details.inner, text=group, padding=10, style="Professions.TLabelframe")
+                section = Section(self.details.inner, text=group, padding=10, style="Professions.TLabelframe")
                 section.pack(fill="x", pady=(0, 12))
                 for args in cards:
                     self._card(section, *args)
@@ -360,27 +378,9 @@ class ProfessionsTab(ttk.Frame):
                 body.pack_forget()
         for tier in progress_tiers(slot, profession):
             height = max(26, self.body_font.metrics("linespace") + 12)
-            bar = tk.Canvas(body, height=height, highlightthickness=0, bg=theme.UI_THEMES[self.mode]["background"])
+            bar = NativeProfessionBar(body, profession, tier, height, self.body_font,
+                                      theme.UI_THEMES[self.mode]["background"])
             bar.pack(fill="x", pady=4)
-            def draw(event, bar=bar, tier=tier, height=height):
-                maximum = tier["maxSkillLevel"]
-                current = tier.get("skillLevel")
-                current = current if isinstance(current, (int, float)) else 0
-                width = max(1, event.width)
-                bar.delete("all")
-                def rounded(length, color):
-                    if length <= 0:
-                        return
-                    diameter = min(height, length)
-                    bar.create_rectangle(diameter / 2, 0, length - diameter / 2, height, fill=color, outline="")
-                    bar.create_oval(0, 0, diameter, height, fill=color, outline="")
-                    bar.create_oval(length - diameter, 0, length, height, fill=color, outline="")
-                rounded(width, "#080d13")
-                rounded(width * max(0, min(1, current / maximum)), self.fmt["colors"]["professionProgress"])
-                text = f"{tier.get('name') or 'Profession skill'}   {current:g} / {maximum:g}"
-                bar.create_text(width / 2 + 1, height / 2 + 1, text=text, fill="black", font=self.body_font)
-                bar.create_text(width / 2, height / 2, text=text, fill="white", font=self.body_font)
-            bar.bind("<Configure>", draw)
         if not body.winfo_children():
             ttk.Label(body, text="Expansion progress is not recorded yet. Open this profession in game, rescan, then /reload.",
                       wraplength=500).pack(anchor="w")
