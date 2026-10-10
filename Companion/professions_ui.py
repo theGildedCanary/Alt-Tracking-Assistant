@@ -163,9 +163,47 @@ class ProfessionsTab(ttk.Frame):
     def set_theme(self, mode):
         self.mode = mode
         colors = theme.UI_THEMES[mode]
+        self._style_checkboxes(colors)
         for area in (self.sidebar, self.details):
             area.canvas.configure(background=colors["background"])
         self.render()
+
+    def _style_checkboxes(self, colors):
+        size = max(16, round(self.winfo_fpixels("12p")))
+        label_gap = round(self.winfo_fpixels("5p"))
+        gold = "#FFD100"
+        self.checkbox_images = []
+        for checked in (False, True):
+            image = tk.PhotoImage(master=self, width=size + label_gap, height=size)
+            image.put(colors["background"], to=(1, 1, size - 1, size - 1))
+            for rectangle in ((1, 1, size - 1, 2), (1, size - 2, size - 1, size - 1),
+                              (1, 1, 2, size - 1), (size - 2, 1, size - 1, size - 1)):
+                image.put(gold, to=rectangle)
+            if checked:
+                # Draw a tick rather than the platform's filled square or X.
+                points = ((.25, .50), (.43, .68), (.76, .30))
+                for start, end in zip(points, points[1:]):
+                    x1, y1 = (round(value * size) for value in start)
+                    x2, y2 = (round(value * size) for value in end)
+                    steps = max(abs(x2 - x1), abs(y2 - y1))
+                    for step in range(steps + 1):
+                        x = round(x1 + (x2 - x1) * step / steps)
+                        y = round(y1 + (y2 - y1) * step / steps)
+                        image.put(gold, to=(x, y, x + 1, y + 2))
+            self.checkbox_images.append(image)
+        style = ttk.Style(self)
+        element = f"ProfessionGold{self.checkbox_images[0]}.indicator"
+        style.element_create(element, "image", self.checkbox_images[0],
+                             ("selected", self.checkbox_images[1]), sticky="")
+        layout = copy.deepcopy(style.layout("TCheckbutton"))
+        def replace(items):
+            for index, (name, options) in enumerate(items):
+                if name.endswith(".indicator"):
+                    items[index] = (element, options)
+                if "children" in options:
+                    replace(options["children"])
+        replace(layout)
+        style.layout("Professions.TCheckbutton", layout)
 
     def _make_fonts(self):
         settings = self.fmt["font"]
