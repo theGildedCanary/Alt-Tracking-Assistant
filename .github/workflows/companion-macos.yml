@@ -51,7 +51,7 @@ jobs:
         run: |
           bundle=Companion/dist/macos/AltTrackingAssistantCompanion.app
           executable="$bundle/Contents/MacOS/AltTrackingAssistantCompanion"
-          lipo -verify_arch '${{ matrix.arch }}' "$executable"
+          lipo "$executable" -verify_arch '${{ matrix.arch }}'
           codesign --verify --deep --strict "$bundle"
           python Companion/verify_macos.py "$bundle"
       - name: Package app and instructions
