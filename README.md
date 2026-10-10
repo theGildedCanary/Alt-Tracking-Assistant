@@ -59,7 +59,7 @@ Results are saved under each character's GUID in account-wide SavedVariables. Th
 
 ## Project Status
 
-ATA is in early development. Its report displays Shadowlands, Dragonflight, The War Within, and Midnight checks, character details, and a cached-roster summary. Additional expansions and trackers are still to come. The repository also includes the validation workflow and automated release packaging.
+ATA tracks progression across Classic, Cataclysm, Mists of Pandaria, Warlords of Draenor, Legion, Battle for Azeroth, Shadowlands, Dragonflight, The War Within, and Midnight, plus Darkmoon Faire checks, professions, character details, and a cached-roster summary. The repository also includes the validation workflow and automated release packaging.
 
 The report UI uses a shared gray-blue and gold theme. The roster shows a live portrait for the logged-in character and faction emblems for other cached characters, with progress bars colored by class.
 
@@ -67,7 +67,7 @@ The selected-character header presents the character portrait and selector, real
 
 Expansion progress uses a fixed three-column grid within bordered cards. Shadowlands uses `#1C488E`, Dragonflight uses `#04404A`, The War Within uses `#792D0B`, and Midnight uses `#331E53` for their title banners and section borders. Each expansion has its own title treatment and progress-bar color, while the progress-check area retains the standard gray-blue panel.
 
-Current addon version: **2.1.0** (in development).
+Current addon version: **2.1.0**.
 
 The Professions tab sits between Tracking and Notes. Its five sections start collapsed: two main professions, Archaeology, Fishing, and Cooking. Expand a section to see skill progress for its learned expansion tiers. Archaeology uses one overall skill bar. Log in to each character to collect its professions; skill changes and opening profession windows update the saved snapshot automatically. If expansion skills are unavailable, open the profession window and use Rescan.
 
@@ -84,9 +84,9 @@ Download from the GitHub Releases page:
 
 ### Optional Windows companion
 
-The Windows companion is included in `AltTrackingAssistant-v2.0.0.zip`. After extracting the addon, launch `AltTrackingAssistantCompanion.exe` from the main `AltTrackingAssistant` folder.
+The Windows companion is included in `AltTrackingAssistant-v2.1.0.zip`. After extracting the addon, launch `AltTrackingAssistantCompanion.exe` from the main `AltTrackingAssistant` folder.
 
-Use the companion to view your roster, configure mains and tracker visibility, customize formatting, and export local `.xlsx` or `.csv` files. No sign-in is required. The addon works without running the companion.
+Use the companion to view your roster, configure mains and tracker visibility, customize roster columns, expansion blocks, individual trackers, highlights, and covenant colors, track profession skill progress, and export local `.xlsx` or `.csv` files. No sign-in is required. The addon works without running the companion.
 
 WoW writes updated character data when you log out or use `/reload`. Settings edited in the companion apply in game on the next login or `/reload`.
 
@@ -136,12 +136,12 @@ To publish a release:
 1. Update `## Version:` in `AltTrackingAssistant.toc`.
 2. Update `CHANGELOG.md`.
 3. Commit the release changes.
-4. Create and publish a GitHub Release using the matching tag `v2.0.0`.
+4. Create and publish a GitHub Release using the matching tag `v2.1.0`.
 
 The release workflow verifies that the tag and TOC versions match, validates the addon, and attaches:
 
 ```text
-AltTrackingAssistant-v2.0.0.zip
+AltTrackingAssistant-v2.1.0.zip
 ```
 
 The ZIP contains an `AltTrackingAssistant` folder ready to place directly in `Interface/AddOns`. It includes the addon and Windows companion executable together. GitHub builds the companion on Windows and packages a neutral settings sync file without personal settings or Google credentials.

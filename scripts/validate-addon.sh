@@ -26,7 +26,7 @@ done
 
 TOC_VERSION=$(awk -F: '
   /^## Version:/ {
-    gsub(/^[ \t]+|[ \t]+$/, "", $2)
+    gsub(/^[ \t]+|[ \t\r]+$/, "", $2)
     print $2
     exit
   }

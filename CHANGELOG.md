@@ -8,7 +8,7 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
-## [2.1.0] - Unreleased
+## [2.1.0] - 2026-10-10
 
 ### Added
 
