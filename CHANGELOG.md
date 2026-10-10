@@ -8,6 +8,19 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
+## [2.1.1] - 2026-10-10
+
+### Changed
+
+- Updated addon panels, rounded borders, muted gold accents, and active-only tab highlights to match the WoW-inspired appearance.
+- Added Blizzard-style red action buttons and scrollbars, and warm roster summary colors.
+- Added original profession-specific WoW progress bar artwork and fill animations to the addon and companion; corrected clipping, border layering, and text alignment. Archaeology uses Blizzard's default artwork.
+- Added Companion WoW Mode with warm panels, textured profession headings, and rounded tabs with a clearer selected gold fade.
+- Added circular WoW-style Settings indicators, category header backdrops, clearer profession group separators, and compact square order buttons with larger arrows.
+- Standardized action captions to bold 7-point uppercase with 2-point spacing, improved padding and contrast, and added a 2-point text inset to editable fields. Existing Pick color buttons are preserved.
+- Added an italicized main-character row toggle under Settings → Roster → Highlights.
+- Preserved custom roster colors while migrating the old default palette.
+
 ## [2.1.0] - 2026-10-10
 
 ### Added

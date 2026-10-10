@@ -2,7 +2,7 @@
 ## Title: Alt Tracking Assistant
 ## Notes: Account-wide alternate character progression and checklist tracker for World of Warcraft Retail.
 ## Author: Gilded Canary
-## Version: 2.1.0
+## Version: 2.1.1
 ## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\ATAIcon.png
 ## SavedVariables: AltTrackingAssistantDB
 
