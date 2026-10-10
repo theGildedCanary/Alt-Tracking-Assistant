@@ -16,16 +16,13 @@ import theme
 import window_position
 from layout import IGNORED, LAYOUT
 from lua_parser import LuaParseError, load_saved_variables
+from platform_support import data_dir, wow_dirs
 
 APP_NAME = "Alt Tracking Assistant Companion"
 SHEET_NAME = "Alt Tracking Assistant"
 SV_FILE = "AltTrackingAssistant.lua"
-DEFAULT_WOW_DIRS = [
-    r"C:\Program Files (x86)\World of Warcraft",
-    r"C:\Program Files\World of Warcraft",
-    r"D:\World of Warcraft",
-]
-CONFIG_PATH = Path(os.environ.get("APPDATA", Path.home())) / "AltTrackingAssistantCompanion" / "config.json"
+DEFAULT_WOW_DIRS = wow_dirs()
+CONFIG_PATH = data_dir() / "config.json"
 BASE_COLUMNS = ["Name", "Realm", "Class", "Prof 1", "Prof 2", "Archaeology", "Fishing", "Cooking", "Race", "Faction", "Level", "Last Scanned"]
 SKIPPED_PROGRESS_KEYS = {"voidStorageItems"}
 
@@ -539,16 +536,25 @@ def export(paths, output):
     return len(characters)
 
 
-def run_gui():
+def run_gui(smoke_test=False):
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
 
     config = load_config()
     root = tk.Tk()
+    if smoke_test:
+        # Tk otherwise prints callback failures while returning a successful exit.
+        def callback_error(exc_type, exc, traceback):
+            raise exc.with_traceback(traceback)
+        root.report_callback_exception = callback_error
     root.title(APP_NAME)
     icon_path = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "ATAIcon.ico"
     try:
-        root.iconbitmap(default=str(icon_path))
+        if sys.platform == "win32":
+            root.iconbitmap(default=str(icon_path))
+        else:
+            root._ata_icon = tk.PhotoImage(file=str(icon_path.with_suffix(".png")))
+            root.iconphoto(True, root._ata_icon)
     except tk.TclError:
         pass
     root.geometry("1280x760")
@@ -817,10 +823,15 @@ def run_gui():
     window_position.restore(root, config.get("window_position"))
 
     poll()
+    if smoke_test:
+        root.after(1000, close_app)
     root.mainloop()
 
 
 def main(argv):
+    if argv[1:] == ["--smoke-test"]:
+        run_gui(smoke_test=True)
+        return 0
     # Headless: python app.py --export <wow_dir> <output.xlsx|csv>
     if len(argv) == 4 and argv[1] == "--export":
         paths = find_saved_variable_files(argv[2])

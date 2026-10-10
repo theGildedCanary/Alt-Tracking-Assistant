@@ -9,21 +9,45 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 import theme
+from platform_support import wheel_units
 
 MIN_BAND_HEIGHT = 22
 MIN_TITLE_HEIGHT = 90
 
 
 def _load_font():
-    """Register the bundled Montserrat for this process; fall back to Segoe UI if unavailable."""
+    """Register bundled Montserrat for this process, with a native font fallback."""
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(base, "fonts", "Montserrat.ttf")
     try:
-        if os.path.exists(path) and ctypes.windll.gdi32.AddFontResourceExW(path, 0x10, 0):
-            return "Montserrat"
+        if os.path.exists(path):
+            if sys.platform == "win32" and ctypes.windll.gdi32.AddFontResourceExW(path, 0x10, 0):
+                return "Montserrat"
+            if sys.platform == "darwin" and _register_mac_font(path):
+                return "Montserrat"
     except (AttributeError, OSError):
         pass
-    return "Segoe UI"
+    return "Helvetica" if sys.platform == "darwin" else "Segoe UI"
+
+
+def _register_mac_font(path):
+    foundation = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+    coretext = ctypes.CDLL("/System/Library/Frameworks/CoreText.framework/CoreText")
+    foundation.CFURLCreateFromFileSystemRepresentation.argtypes = [
+        ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_bool]
+    foundation.CFURLCreateFromFileSystemRepresentation.restype = ctypes.c_void_p
+    foundation.CFRelease.argtypes = [ctypes.c_void_p]
+    foundation.CFRelease.restype = None
+    coretext.CTFontManagerRegisterFontsForURL.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p]
+    coretext.CTFontManagerRegisterFontsForURL.restype = ctypes.c_bool
+    encoded = os.fsencode(path)
+    url = foundation.CFURLCreateFromFileSystemRepresentation(None, encoded, len(encoded), False)
+    if not url:
+        return False
+    try:
+        return coretext.CTFontManagerRegisterFontsForURL(url, 1, None)  # process scope
+    finally:
+        foundation.CFRelease(url)
 
 
 FAMILY = _load_font()
@@ -156,10 +180,10 @@ class RosterGrid(ttk.Frame):
         self._schedule_redraw()
 
     def _on_wheel(self, event):
-        self.body.yview_scroll(-3 * (event.delta // 120 or (1 if event.delta > 0 else -1)), "units")
+        self.body.yview_scroll(wheel_units(event.delta), "units")
 
     def _on_shift_wheel(self, event):
-        self.body.xview_scroll(-5 * (event.delta // 120 or (1 if event.delta > 0 else -1)), "units")
+        self.body.xview_scroll(wheel_units(event.delta, multiplier=5), "units")
 
     def _autofit(self, columns, rows):
         """Size every column to its widest cell or title; widen the first column of a group if its title is wider."""

@@ -6,6 +6,7 @@ from tkinter import ttk
 
 import settings_sync as ss
 from format_ui import FormatPanel, RosterPanel
+from platform_support import wheel_units
 
 NONE_LABEL = "(none)"
 COLUMNS = 4
@@ -27,7 +28,7 @@ class ScrollFrame(ttk.Frame):
 
     def _on_wheel(self, event):
         if self.winfo_ismapped() and str(event.widget).startswith(str(self.canvas)):
-            self.canvas.yview_scroll(-3 * (event.delta // 120 or (1 if event.delta > 0 else -1)), "units")
+            self.canvas.yview_scroll(wheel_units(event.delta), "units")
 
 
 PAGES = ("Main Selection", "Tracking", "Roster", "Formatting")

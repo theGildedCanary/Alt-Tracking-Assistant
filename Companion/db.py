@@ -1,11 +1,12 @@
 """Local SQLite database holding every character the companion has seen."""
 
 import json
-import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(os.environ.get("APPDATA", Path.home())) / "AltTrackingAssistantCompanion" / "companion.db"
+from platform_support import data_dir
+
+DB_PATH = data_dir() / "companion.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS characters (

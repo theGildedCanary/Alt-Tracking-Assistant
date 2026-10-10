@@ -82,15 +82,17 @@ Download from the GitHub Releases page:
    `AltTrackingAssistant`
 4. Restart World of Warcraft or reload the UI.
 
-### Optional Windows companion
+### Optional Windows and Mac companion
 
 The Windows companion is included in `AltTrackingAssistant-v2.1.0.zip`. After extracting the addon, launch `AltTrackingAssistantCompanion.exe` from the main `AltTrackingAssistant` folder.
+
+Releases built with the Mac workflow also provide separate `AltTrackingAssistantCompanion-macOS-arm64.zip` (Apple Silicon) and `AltTrackingAssistantCompanion-macOS-x86_64.zip` (Intel) downloads. Extract the matching ZIP and move the `.app` into Applications. Install the addon using the main addon ZIP. The Mac app includes Python. For an unnotarized build's first-launch prompt, see the companion instructions below.
 
 Use the companion to view your roster, configure mains and tracker visibility, customize roster columns, expansion blocks, individual trackers, highlights, and covenant colors, track profession skill progress, and export local `.xlsx` or `.csv` files. No sign-in is required. The addon works without running the companion.
 
 WoW writes updated character data when you log out or use `/reload`. Settings edited in the companion apply in game on the next login or `/reload`.
 
-The companion stores its database and preferences in `%APPDATA%\AltTrackingAssistantCompanion`; installing an update preserves those files.
+The companion stores its database and preferences in `%APPDATA%\AltTrackingAssistantCompanion` on Windows and `~/Library/Application Support/AltTrackingAssistantCompanion` on Mac; installing an update preserves those files. Mac builds and tests run automatically on GitHub's hosted Macs, so maintainers can manage them from Windows.
 
 See `Companion-README.md` in the release download, or [the companion instructions](Companion/README.md) in this repository, for details.
 
@@ -111,7 +113,7 @@ scripts/
 - **Features/** — character scanners, tracker definitions, and feature modules
 - **UI/** — report pages, options, character selectors, and other interface code
 - **Media/** — addon icons and other bundled media
-- **Companion/** — Windows companion source and build script
+- **Companion/** — shared Windows/macOS companion source and build scripts
 - **scripts/** — repository validation utilities
 - **.github/** — issue templates and GitHub Actions workflows
 

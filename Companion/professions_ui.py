@@ -9,6 +9,7 @@ from tkinter import font as tkfont
 import db
 import theme
 import roster_format
+from platform_support import wheel_units
 
 STATE_KEY = "profession_dashboard"
 SLOTS = ("primary", "secondary", "archaeology", "fishing", "cooking")
@@ -87,7 +88,7 @@ class ScrollArea(ttk.Frame):
 
     def _wheel(self, event):
         if self.winfo_ismapped() and str(event.widget).startswith(str(self)):
-            self.canvas.yview_scroll(-3 if event.delta > 0 else 3, "units")
+            self.canvas.yview_scroll(wheel_units(event.delta), "units")
 
 
 class SpacedHeading(tk.Canvas):

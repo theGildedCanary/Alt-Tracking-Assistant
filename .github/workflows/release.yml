@@ -17,6 +17,28 @@ env:
   RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
 
 jobs:
+  build-macos:
+    needs: validate
+    uses: ./.github/workflows/companion-macos.yml
+    with:
+      source_ref: ${{ inputs.release_tag || github.event.release.tag_name }}
+
+  attach-macos:
+    needs: build-macos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tested Mac packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: companion-macOS-*
+          merge-multiple: true
+          path: macos-packages
+      - name: Attach Mac packages to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload "$RELEASE_TAG" macos-packages/*.zip --clobber
+
   validate:
     runs-on: ubuntu-latest
 
