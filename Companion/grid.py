@@ -80,6 +80,7 @@ class Cell:
     bold: bool = True
     spacing: int = 0
     italic: bool = False
+    text_runs: tuple = ()  # (text, font color) segments within a cell
 
 
 class RosterGrid(ttk.Frame):
@@ -361,7 +362,18 @@ class RosterGrid(ttk.Frame):
             font = self.f_bold_italic if cell.bold else self.f_italic
         else:
             font = self.f_bold if cell.bold else self.f_body
-        if cell.spacing:
+        if cell.text_runs:
+            length = sum(font.measure(text) for text, _ in cell.text_runs)
+            if column.align == "center":
+                left = x + (column.width - length) / 2
+            elif column.align == "e":
+                left = x + column.width - 6 - length
+            else:
+                left = x + 6
+            for text, color in cell.text_runs:
+                canvas.create_text(left, y + height / 2, text=text, fill=color, font=font, anchor="w")
+                left += font.measure(text)
+        elif cell.spacing:
             length = self._cell_length(cell)
             left = x + (column.width - length) / 2 if column.align == "center" else x + 6
             for ch in cell.text:

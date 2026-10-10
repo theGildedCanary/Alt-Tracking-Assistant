@@ -89,9 +89,11 @@ def flatten_progress(progress):
             if key in SKIPPED_PROGRESS_KEYS or (expansion, key) in IGNORED:
                 continue
             if isinstance(value, dict):
-                value = ", ".join(f"{k}: {v}" for k, v in sorted(value.items(), key=lambda kv: str(kv[0])))
+                separator = " | " if (expansion, key) == ("shadowlands", "renownByCovenant") else ", "
+                value = separator.join(f"{k}: {v}" for k, v in sorted(value.items(), key=lambda kv: str(kv[0])))
             elif isinstance(value, list):
-                value = ", ".join(str(v) for v in value)
+                separator = " | " if (expansion, key) == ("shadowlands", "renownByCovenant") else ", "
+                value = separator.join(str(v) for v in value)
             flat[(expansion, key)] = value
     return flat
 
@@ -202,13 +204,29 @@ def realm_initials(realm):
 RACE_SHORT = {"Lightforged Draenei": "Lightforged", "Zandalari Troll": "Zandalari"}
 GENDERS = {1: "M", 2: "F"}
 COVENANT_NAMES = {1: "Kyrian", 2: "Venthyr", 3: "Night Fae", 4: "Necrolord"}
+COVENANT_COLORS = {
+    1: "#A9D6F5",  # Kyrian: pale blue
+    2: "#F2AAAA",  # Venthyr: pale red
+    3: "#D2B5F0",  # Night Fae: pale purple
+    4: "#B4DFA9",  # Necrolord: pale green
+}
 HIDDEN_TRACKERS = {("shadowlands", "covenantID")}
 TRACKER_TITLES = {
     ("shadowlands", "activeCovenantID"): "Covenant",
     ("shadowlands", "renownByCovenant"): "Renown",
 }
 CENTERED_TRACKERS = set(TRACKER_TITLES)
-GROUP_TITLES = {"darkmoonFaire": "DMF"}
+TRACKER_MAXIMUMS = {
+    ("shadowlands", "anima"): 4,
+    ("battleForAzeroth", "footholds"): 3,
+    ("legion", "artifacts"): 3,
+    ("warlordsOfDraenor", "garrisonLevel"): 3,
+}
+ARTIFACT_MAXIMUMS_BY_CLASS = {
+    "DEMONHUNTER": 2,
+    "DRUID": 4,
+}
+GROUP_TITLES = {"darkmoonFaire": "DMF", "mistsOfPandaria": "MOP", "classic": ""}
 
 
 def load_format():
@@ -317,13 +335,22 @@ BASE_BUILDERS = {
 }
 
 
-def build_roster_grid(characters, fmt):
+def build_roster_grid(characters, fmt, settings=None):
     """Columns and cells for the spreadsheet-style roster view, styled by the roster format settings."""
     from grid import Cell, Column
 
     colors = fmt["colors"]
     flats = [flatten_progress(c.get("progress")) for c in characters]
-    tracker_columns = [c for c in ordered_columns(flats) if c not in HIDDEN_TRACKERS]
+    tracked_items = settings_sync.normalize(settings)["trackedItems"]
+    setting_keys = {
+        ("shadowlands", "activeCovenantID"): "covenant",
+        ("shadowlands", "renownByCovenant"): "renown",
+    }
+    tracker_columns = [
+        (expansion, key) for expansion, key in ordered_columns(flats)
+        if (expansion, key) not in HIDDEN_TRACKERS
+        and tracked_items.get(expansion, {}).get(setting_keys.get((expansion, key), key), True)
+    ]
 
     columns = []
     rows = [[] for _ in characters]
@@ -343,16 +370,48 @@ def build_roster_grid(characters, fmt):
         shade = fmt["expansionShade"].get(expansion, colors["headerBg"])
         accent = fmt["expansionAccent"].get(expansion, colors["baseTitle"])
         cells = []
-        for flat in flats:
+        for record, flat in zip(characters, flats):
             value = flat.get((expansion, key))
+            if (expansion, key) == ("shadowlands", "renownByCovenant"):
+                renown = (record.get("progress") or {}).get("shadowlands", {}).get(key)
+                if isinstance(renown, (dict, list)):
+                    entries = sorted(renown.items(), key=lambda item: str(item[0])) if isinstance(renown, dict) else enumerate(renown, 1)
+                    runs = []
+                    for covenant_id, level in entries:
+                        if runs:
+                            runs.append((" | ", accent))
+                        text = f"{covenant_id}: {level}" if isinstance(renown, dict) else str(level)
+                        runs.append((text, COVENANT_COLORS.get(covenant_id, accent)))
+                    cells.append(Cell("".join(text for text, _ in runs), fg=accent, text_runs=tuple(runs)))
+                    continue
             if (expansion, key) == ("shadowlands", "activeCovenantID"):
-                value = COVENANT_NAMES.get(value, "")
+                cells.append(Cell(COVENANT_NAMES.get(value, ""), fg=COVENANT_COLORS.get(value, accent)))
+                continue
+            if (expansion, key) == ("classic", "aq40"):
+                has_progress = isinstance(value, (int, float)) and value > 0
+                cells.append(Cell("x", fg=accent, bg=shade) if has_progress else Cell())
+                continue
             if value is True:
                 cells.append(Cell(fmt["mark"], fg=accent, bg=shade))
             elif value is None or value is False or value == "":
                 cells.append(Cell())
             else:
-                cells.append(Cell(str(value), fg=accent))
+                maximum = TRACKER_MAXIMUMS.get((expansion, key))
+                if (expansion, key) == ("legion", "artifacts"):
+                    maximum = ARTIFACT_MAXIMUMS_BY_CLASS.get(record.get("classFile"), maximum)
+                if isinstance(value, (int, float)) and maximum is not None:
+                    text = f"{value:g} / {maximum:g}"
+                else:
+                    text = str(value)
+                highlight_maximum = maximum
+                if expansion == "shadowlands" and key in {"renown", "renownByCovenant"}:
+                    highlight_maximum = 80
+                complete = (
+                    isinstance(value, (int, float))
+                    and highlight_maximum is not None
+                    and value >= highlight_maximum
+                )
+                cells.append(Cell(text, fg=accent, bg=shade if complete else ""))
         longest = max((len(c.text) for c in cells), default=0)
         columns.append(
             Column(
@@ -512,6 +571,7 @@ def run_gui():
         format_state["fmt"],
         change_ui_theme,
         ui_theme_var.get(),
+        on_tracking_change=lambda: render_roster(),
     )
 
     for page in settings_tab.pages.values():
@@ -621,7 +681,7 @@ def run_gui():
 
     def render_roster():
         fmt = format_state["fmt"]
-        columns, rows = build_roster_grid(format_state["characters"], fmt)
+        columns, rows = build_roster_grid(format_state["characters"], fmt, settings_tab.settings)
         roster_grid.set_data(columns, rows, grid_module.style_from_format(fmt))
 
     def reload_roster():
@@ -631,9 +691,9 @@ def run_gui():
             roster_status.set(f"Could not read addon data: {error}")
             return
         format_state["characters"] = characters
-        render_roster()
         settings, pending = load_settings(list(files)) if files else (settings_sync.normalize({}), False)
         settings_tab.load(characters, settings, pending)
+        render_roster()
         roster_status.set(f"{len(characters)} characters  ·  updated {datetime.now():%H:%M:%S}")
 
     row = 0

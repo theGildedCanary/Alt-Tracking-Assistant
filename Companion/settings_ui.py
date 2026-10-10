@@ -37,10 +37,12 @@ class SettingsTab(ttk.Frame):
     def __init__(
             self, parent, on_save, on_revert, on_format_change, fmt,
             on_theme_change, ui_theme,
+            on_tracking_change=None,
     ):
         super().__init__(parent)
         self.on_save = on_save
         self.on_revert = on_revert
+        self.on_tracking_change = on_tracking_change
         self.characters = []
         self.settings = ss.normalize({})
         self.dirty = False
@@ -196,6 +198,8 @@ class SettingsTab(ttk.Frame):
                 def toggle(exp=exp_key, check=check_id, var=var):
                     self.settings["trackedItems"].setdefault(exp, {})[check] = var.get()
                     self._touch()
+                    if self.on_tracking_change:
+                        self.on_tracking_change()
 
                 ttk.Checkbutton(row, text=label, variable=var, command=toggle).grid(
                     row=index // COLUMNS, column=index % COLUMNS, sticky="w", padx=(0, 18), pady=1
