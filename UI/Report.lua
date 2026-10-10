@@ -1043,6 +1043,11 @@ local function CreateReportFrame()
     expansionScrollThumb:RegisterForDrag("LeftButton")
 
     local function UpdateExpansionScrollThumb()
+        if frame.activeTab and frame.activeTab ~= "tracking" then
+            expansionScrollThumb:Hide()
+            expansionScrollBar:Hide()
+            return
+        end
         local viewportHeight = expansionScroll:GetHeight()
         local contentHeight = expansionContent:GetHeight()
         local scrollRange = expansionScroll:GetVerticalScrollRange()
@@ -1231,13 +1236,24 @@ local function CreateReportFrame()
     notesPanel:SetPoint("BOTTOMLEFT", contentRow, "BOTTOMLEFT")
     notesPanel:Hide()
 
+    local professionsPanel = ATA.CreateProfessionsPanel(contentRow, {
+        CreateThemedButton = CreateThemedButton,
+        CreateRoundedProgressBar = CreateRoundedProgressBar,
+    })
+    professionsPanel:SetPoint("TOPLEFT", contentRow, "TOPLEFT", 0, -30)
+    professionsPanel:SetPoint("RIGHT", rosterCard, "LEFT", -10, 0)
+    professionsPanel:SetPoint("BOTTOMLEFT", contentRow, "BOTTOMLEFT")
+    professionsPanel:Hide()
+    frame.professionsPanel = professionsPanel
+
     local tabButtons = {}
     local function SelectTab(tab)
         frame.activeTab = tab
         local showNotes = tab == "notes"
         notesPanel:SetShown(showNotes)
-        expansionScroll:SetShown(not showNotes)
-        if showNotes then
+        professionsPanel:SetShown(tab == "professions")
+        expansionScroll:SetShown(tab == "tracking")
+        if tab ~= "tracking" then
             expansionScrollBar:Hide()
         else
             UpdateExpansionScrollThumb()
@@ -1249,7 +1265,7 @@ local function CreateReportFrame()
         end
         ATA:UpdateReport()
     end
-    for index, info in ipairs({ { "tracking", "Tracking" }, { "notes", "Notes" } }) do
+    for index, info in ipairs({ { "tracking", "Tracking" }, { "professions", "Professions" }, { "notes", "Notes" } }) do
         local button = CreateThemedButton(contentRow, info[2], 100, 24)
         button:SetPoint("TOPLEFT", contentRow, "TOPLEFT", (index - 1) * 106, 0)
         button:SetScript("OnLeave", function(self)
@@ -1328,6 +1344,9 @@ function ATA:UpdateReport()
     reportFrame.realmText:SetText(realm or "Unknown")
     if reportFrame.notesPanel and reportFrame.activeTab == "notes" then
         reportFrame.notesPanel:Refresh(selectedKey, characterName, record ~= nil)
+    end
+    if reportFrame.professionsPanel and reportFrame.activeTab == "professions" then
+        reportFrame.professionsPanel:Refresh(selectedKey, record)
     end
 
     local classColor = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]

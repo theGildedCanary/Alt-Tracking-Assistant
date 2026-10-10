@@ -280,6 +280,7 @@ function ATA:ScanCurrentCharacter()
     record.level = UnitLevel("player") or record.level
     record.level10Date = GetLevelTenAchievementDate() or record.level10Date
     record.lastScanned = time()
+    self:ScanProfessions(record)
     record.progress = record.progress or {}
     for expansionKey, expansionProgress in pairs(progress) do
         record.progress[expansionKey] = expansionProgress
@@ -291,6 +292,10 @@ end
 
 local scanFrame = CreateFrame("Frame")
 scanFrame:RegisterEvent("PLAYER_LOGIN")
+scanFrame:RegisterEvent("SKILL_LINES_CHANGED")
+scanFrame:RegisterEvent("TRADE_SKILL_SHOW")
+scanFrame:RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED")
+scanFrame:RegisterEvent("TRADE_SKILL_LIST_UPDATE")
 scanFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 scanFrame:RegisterEvent("ACHIEVEMENT_EARNED")
 scanFrame:RegisterEvent("COVENANT_CHOSEN")

@@ -8,6 +8,15 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
+## [2.1.0] - Unreleased
+
+### Added
+
+- Professions tab between Tracking and Notes, with five profession sections collapsed by default.
+- Character profession snapshots and expansion skill progress bars for learned profession tiers.
+- Automatic profession updates on skill changes and profession window updates; shared Archaeology skill progress.
+- Companion roster profession names beside Class and vertical Archaeology, Fishing, and Cooking indicators, with database persistence and local exports.
+
 ## [2.0.0] - 2026-10-09
 
 ### Added

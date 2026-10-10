@@ -70,6 +70,7 @@ class Column:
     frozen: bool = False
     vertical: bool = False
     title_fg: str = "#ffffff"
+    separator_before: bool = False
 
 
 @dataclass
@@ -293,6 +294,11 @@ class RosterGrid(ttk.Frame):
                     canvas, x, y, column, row[col_index], stripe
                 )
 
+        for _, column, canvas, x in visible_columns:
+            if column.separator_before:
+                canvas.create_line(x, first_row * row_height, x, last_row * row_height,
+                                   fill=self.style.line, width=3)
+
         if frozen_width:
             self.left.create_line(
                 frozen_width - 1, first_row * row_height,
@@ -331,6 +337,12 @@ class RosterGrid(ttk.Frame):
                 self._draw_vertical_title(canvas, x + column.width / 2, column.title, column.title_fg)
             else:
                 self._draw_spaced_title(canvas, x + column.width / 2, column.title, column.fg)
+            x += column.width
+
+        x = 0
+        for column in columns:
+            if column.separator_before:
+                canvas.create_line(x, 0, x, self.header_height, fill=style.line, width=3)
             x += column.width
 
     def _draw_spaced_title(self, canvas, cx, title, color):

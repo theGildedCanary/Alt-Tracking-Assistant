@@ -26,7 +26,7 @@ DEFAULT_WOW_DIRS = [
     r"D:\World of Warcraft",
 ]
 CONFIG_PATH = Path(os.environ.get("APPDATA", Path.home())) / "AltTrackingAssistantCompanion" / "config.json"
-BASE_COLUMNS = ["Name", "Realm", "Class", "Race", "Faction", "Level", "Last Scanned"]
+BASE_COLUMNS = ["Name", "Realm", "Class", "Prof 1", "Prof 2", "Archaeology", "Fishing", "Cooking", "Race", "Faction", "Level", "Last Scanned"]
 SKIPPED_PROGRESS_KEYS = {"voidStorageItems"}
 
 
@@ -321,6 +321,22 @@ def _cell_class(record, fmt):
     return Cell(name, fg=color or fmt["colors"]["text"])
 
 
+def profession_value(record, slot):
+    profession = (record.get("professions") or {}).get(slot)
+    if not isinstance(profession, dict):
+        return ""
+    if slot in {"primary", "secondary"}:
+        return profession.get("name") or ""
+    return "x"
+
+
+def _profession_builder(slot):
+    def build(record, fmt):
+        from grid import Cell
+        return Cell(profession_value(record, slot), fg=fmt["colors"]["text"])
+    return build
+
+
 BASE_BUILDERS = {
     "acct": _cell_acct,
     "realm": _cell_realm,
@@ -332,6 +348,7 @@ BASE_BUILDERS = {
     "gender": _cell_gender,
     "cm": _cell_cm,
     "class": _cell_class,
+    **{slot: _profession_builder(slot) for slot in ("primary", "secondary", "archaeology", "fishing", "cooking")},
 }
 
 
@@ -419,6 +436,7 @@ def build_roster_grid(characters, fmt, settings=None):
                 group=GROUP_TITLES.get(expansion, pretty(expansion)), bg=shade, fg=accent,
                 align="center" if longest <= 8 or (expansion, key) in CENTERED_TRACKERS else "w",
                 vertical=fmt["trackerTitlesVertical"], title_fg=colors["trackerTitle"],
+                separator_before=(expansion, key) == tracker_columns[0],
             )
         )
         for row, cell in zip(rows, cells):
@@ -443,6 +461,7 @@ def build_table(characters):
             record.get("name", ""),
             record.get("realm", ""),
             record.get("class", ""),
+            *[profession_value(record, slot) for slot in ("primary", "secondary", "archaeology", "fishing", "cooking")],
             record.get("race", ""),
             record.get("faction", ""),
             record.get("level", ""),

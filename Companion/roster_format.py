@@ -19,6 +19,11 @@ BASE_COLUMNS = [
     {"key": "gender", "title": "Gender", "align": "center", "vertical": True, "frozen": False, "visible": True},
     {"key": "cm", "title": "CM", "align": "center", "vertical": False, "frozen": False, "visible": True},
     {"key": "class", "title": "Class", "align": "center", "vertical": False, "frozen": False, "visible": True},
+    {"key": "primary", "title": "Prof 1", "align": "center", "vertical": False, "frozen": False, "visible": True},
+    {"key": "secondary", "title": "Prof 2", "align": "center", "vertical": False, "frozen": False, "visible": True},
+    {"key": "archaeology", "title": "Arch.", "align": "center", "vertical": True, "frozen": False, "visible": True},
+    {"key": "fishing", "title": "Fish.", "align": "center", "vertical": True, "frozen": False, "visible": True},
+    {"key": "cooking", "title": "Cook.", "align": "center", "vertical": True, "frozen": False, "visible": True},
 ]
 
 DEFAULTS = {
@@ -115,10 +120,18 @@ def normalize(raw):
         seen.add(item["key"])
         column = dict(known[item["key"]])
         column["title"] = _text(item.get("title"), column["title"], 24)
+        if (column["key"], column["title"]) in {("primary", "Primary"), ("secondary", "Secondary")}:
+            column["title"] = known[column["key"]]["title"]
         column["align"] = item.get("align") if item.get("align") in ALIGNS else column["align"]
         for flag in ("vertical", "frozen", "visible"):
             column[flag] = _bool(item.get(flag), column[flag])
         columns.append(column)
-    columns += [dict(c) for c in BASE_COLUMNS if c["key"] not in seen]
+    # Insert new columns beside their default predecessor while preserving saved formatting/order.
+    for index, default in enumerate(BASE_COLUMNS):
+        if default["key"] in seen:
+            continue
+        previous = {c["key"] for c in BASE_COLUMNS[:index]}
+        position = next((i + 1 for i in range(len(columns) - 1, -1, -1) if columns[i]["key"] in previous), 0)
+        columns.insert(position, dict(default))
     fmt["columns"] = columns
     return fmt

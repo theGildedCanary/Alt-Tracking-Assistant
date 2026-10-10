@@ -67,7 +67,9 @@ The selected-character header presents the character portrait and selector, real
 
 Expansion progress uses a fixed three-column grid within bordered cards. Shadowlands uses `#1C488E`, Dragonflight uses `#04404A`, The War Within uses `#792D0B`, and Midnight uses `#331E53` for their title banners and section borders. Each expansion has its own title treatment and progress-bar color, while the progress-check area retains the standard gray-blue panel.
 
-Current version: **2.0.0**
+Current addon version: **2.1.0** (in development).
+
+The Professions tab sits between Tracking and Notes. Its five sections start collapsed: two main professions, Archaeology, Fishing, and Cooking. Expand a section to see skill progress for its learned expansion tiers. Archaeology uses one overall skill bar. Log in to each character to collect its professions; skill changes and opening profession windows update the saved snapshot automatically. If expansion skills are unavailable, open the profession window and use Rescan.
 
 ## Installation
 

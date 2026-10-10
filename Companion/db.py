@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS characters (
     level10_date INTEGER,
     last_scanned INTEGER NOT NULL DEFAULT 0,
     is_main INTEGER NOT NULL DEFAULT 0,
-    progress_json TEXT NOT NULL DEFAULT '{}'
+    progress_json TEXT NOT NULL DEFAULT '{}',
+    professions_json TEXT DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -42,6 +43,8 @@ def connect(path=DB_PATH):
         conn.execute("ALTER TABLE characters ADD COLUMN body_type INTEGER")
     if "account" not in {row[1] for row in conn.execute("PRAGMA table_info(characters)")}:
         conn.execute("ALTER TABLE characters ADD COLUMN account TEXT")
+    if "professions_json" not in {row[1] for row in conn.execute("PRAGMA table_info(characters)")}:
+        conn.execute("ALTER TABLE characters ADD COLUMN professions_json TEXT DEFAULT '{}'")
     return conn
 
 
@@ -86,15 +89,16 @@ def sync_characters(conn, characters, mains):
             conn.execute(
                 """
                 INSERT INTO characters (guid, name, realm, class_name, class_file, race, body_type, account, faction, level,
-                                        level10_date, last_scanned, progress_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        level10_date, last_scanned, progress_json, professions_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(guid) DO UPDATE SET
                     name = excluded.name, realm = excluded.realm, class_name = excluded.class_name,
                     class_file = excluded.class_file, race = excluded.race,
                     body_type = COALESCE(excluded.body_type, characters.body_type),
                     account = excluded.account, faction = excluded.faction,
                     level = excluded.level, level10_date = excluded.level10_date,
-                    last_scanned = excluded.last_scanned, progress_json = excluded.progress_json
+                    last_scanned = excluded.last_scanned, progress_json = excluded.progress_json,
+                    professions_json = COALESCE(excluded.professions_json, characters.professions_json)
                 WHERE excluded.last_scanned >= characters.last_scanned
                 """,
                 (
@@ -111,6 +115,7 @@ def sync_characters(conn, characters, mains):
                     _int_or_none(record.get("level10Date")),
                     _int_or_none(record.get("lastScanned")) or 0,
                     json.dumps(record.get("progress") or {}),
+                    json.dumps(record["professions"]) if isinstance(record.get("professions"), dict) else None,
                 ),
             )
         conn.execute("UPDATE characters SET is_main = 0")
@@ -137,6 +142,7 @@ def load_characters(conn):
                 "lastScanned": row["last_scanned"],
                 "isMain": bool(row["is_main"]),
                 "progress": json.loads(row["progress_json"] or "{}"),
+                "professions": json.loads(row["professions_json"] or "{}"),
             }
         )
     return result

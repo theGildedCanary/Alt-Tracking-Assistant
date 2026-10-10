@@ -17,6 +17,8 @@ Headless: `python app.py --export "<WoW folder>" "<output.xlsx | output.csv>"`
 
 ## Roster tab
 
+Prof 1 and Prof 2 show profession names in separate columns next to Class. The vertical Arch., Fish., and Cook. columns show `x` for learned Archaeology, Fishing, and Cooking, and stay blank otherwise. Profession data comes from the addon after logging in to each character and logging out or using `/reload`. Professions are also included in local exports.
+
 The **Roster** tab shows every character in a spreadsheet-style grid (realm, faction, level, DOB, name, race, class main, class, then every tracker grouped by expansion). Data is copied into a local database (%APPDATA%\AltTrackingAssistantCompanion\companion.db) each time the addon data changes, so characters stay in the app even if they are no longer in the addon's data. The grid updates after you /reload or log out in game.
 
 ## Building the executable (maintainer, one time)
