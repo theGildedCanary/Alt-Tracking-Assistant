@@ -114,5 +114,6 @@ class NativeProfessionBar(tk.Canvas):
         self.create_image(0, 0, image=photo, anchor="nw")
         self._photo = photo
         y = max(1, round(self.art_height*3/29)) + max(1, round(self.art_height*18/29)) / 2
-        self.create_text(width/2+1, y+1, text=self.label, fill="black", font=self.font)
+        for dx, dy in ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
+            self.create_text(width/2+dx, y+dy, text=self.label, fill="black", font=self.font)
         self.create_text(width/2, y, text=self.label, fill="white", font=self.font)

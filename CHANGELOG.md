@@ -14,7 +14,7 @@ The project uses semantic versioning:
 
 - Updated addon panels, rounded borders, muted gold accents, and active-only tab highlights to match the WoW-inspired appearance.
 - Added Blizzard-style red action buttons and scrollbars, and warm roster summary colors.
-- Added original profession-specific WoW progress bar artwork and fill animations to the addon and companion; corrected clipping, border layering, and text alignment. Archaeology uses Blizzard's default artwork.
+- Added original profession-specific WoW progress bar artwork and fill animations to the addon and companion; corrected clipping, border layering, and text alignment, and added thin black text outlines for readability. Archaeology uses Blizzard's default artwork.
 - Added Companion WoW Mode with warm panels, textured profession headings, and rounded tabs with a clearer selected gold fade.
 - Added circular WoW-style Settings indicators, category header backdrops, clearer profession group separators, and compact square order buttons with larger arrows.
 - Standardized action captions to bold 7-point uppercase with 2-point spacing, improved padding and contrast, and added a 2-point text inset to editable fields. Existing Pick color buttons are preserved.

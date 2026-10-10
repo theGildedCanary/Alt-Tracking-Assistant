@@ -85,8 +85,9 @@ function ATA.CreateProfessionsPanel(parent, helpers)
                         row.text:SetPoint("LEFT", 8, row:GetHeight() * 2.5 / 29)
                         row.text:SetPoint("RIGHT", -8, row:GetHeight() * 2.5 / 29)
                         row.text:SetJustifyH("CENTER")
-                        row.text:SetShadowColor(0, 0, 0, 1)
-                        row.text:SetShadowOffset(1, -1)
+                        local fontPath, fontSize = row.text:GetFont()
+                        row.text:SetFont(fontPath, fontSize, "OUTLINE")
+                        row.text:SetShadowOffset(0, 0)
                         section.rows[rowIndex] = row
                     end
                     local tier = tiers[rowIndex]
