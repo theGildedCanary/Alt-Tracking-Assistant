@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS characters (
     last_scanned INTEGER NOT NULL DEFAULT 0,
     is_main INTEGER NOT NULL DEFAULT 0,
     progress_json TEXT NOT NULL DEFAULT '{}',
-    professions_json TEXT DEFAULT '{}'
+    professions_json TEXT DEFAULT '{}',
+    quest_log_json TEXT DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -45,6 +46,8 @@ def connect(path=DB_PATH):
         conn.execute("ALTER TABLE characters ADD COLUMN account TEXT")
     if "professions_json" not in {row[1] for row in conn.execute("PRAGMA table_info(characters)")}:
         conn.execute("ALTER TABLE characters ADD COLUMN professions_json TEXT DEFAULT '{}'")
+    if "quest_log_json" not in {row[1] for row in conn.execute("PRAGMA table_info(characters)")}:
+        conn.execute("ALTER TABLE characters ADD COLUMN quest_log_json TEXT DEFAULT '{}'")
     return conn
 
 
@@ -120,6 +123,13 @@ def sync_characters(conn, characters, mains):
             )
         conn.execute("UPDATE characters SET is_main = 0")
         conn.executemany("UPDATE characters SET is_main = 1 WHERE guid = ?", [(str(g),) for g in mains])
+        for guid, record in characters.items():
+            if isinstance(record.get('questLog'), dict):
+                incoming = record['questLog']
+                row = conn.execute('SELECT quest_log_json FROM characters WHERE guid = ?', (str(guid),)).fetchone()
+                old = json.loads(row['quest_log_json'] or '{}') if row else {}
+                if incoming.get('scannedAt', 0) >= old.get('scannedAt', 0):
+                    conn.execute('UPDATE characters SET quest_log_json = ? WHERE guid = ?', (json.dumps(incoming), str(guid)))
 
 
 def load_characters(conn):
@@ -143,6 +153,7 @@ def load_characters(conn):
                 "isMain": bool(row["is_main"]),
                 "progress": json.loads(row["progress_json"] or "{}"),
                 "professions": json.loads(row["professions_json"] or "{}"),
+                "questLog": json.loads(row["quest_log_json"] or "{}"),
             }
         )
     return result

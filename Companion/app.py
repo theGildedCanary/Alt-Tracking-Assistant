@@ -152,6 +152,11 @@ def collect_sources(paths):
             current = merged.get(guid)
             if current is None or (record.get("lastScanned") or 0) >= (current.get("lastScanned") or 0):
                 merged[guid] = {**record, "account": account_label(path)}
+            # Quest events update independently of the full progression scan.
+            old_quests = (current or {}).get("questLog") or {}
+            new_quests = record.get("questLog") or {}
+            if old_quests or new_quests:
+                merged[guid]["questLog"] = max((old_quests, new_quests), key=lambda value: value.get("scannedAt", 0))
     return merged, mains
 
 
@@ -592,6 +597,29 @@ def run_gui():
     professions_tab = ProfessionsTab(notebook, profession_dashboard_state,
                                     save_profession_dashboard, ui_theme_var.get())
     notebook.add(professions_tab, text="Professions")
+    import quest_log
+    from quest_log_ui import QuestLogTab
+    conn = db.connect()
+    try:
+        quest_state = quest_log.load(conn)
+    finally:
+        conn.close()
+
+    def save_quest_log(state):
+        conn = db.connect()
+        try:
+            return quest_log.save(conn, list(files), state)
+        finally:
+            conn.close()
+
+    def save_quest_popup_positions(positions):
+        config['quest_popup_positions'] = positions
+        persist()
+
+    quest_tab = QuestLogTab(notebook, quest_state, save_quest_log,
+                           lambda: reload_roster(), ui_theme_var.get(),
+                           config.get('quest_popup_positions'), save_quest_popup_positions)
+    notebook.add(quest_tab, text="Quest Log")
     from settings_ui import SettingsTab
 
     def save_and_reload(settings):
@@ -616,6 +644,7 @@ def run_gui():
         for page in settings_tab.pages.values():
             page.canvas.configure(background=colors["background"])
         professions_tab.set_theme(mode)
+        quest_tab.set_theme(mode)
 
         persist()
     
@@ -637,6 +666,8 @@ def run_gui():
     notebook.add(settings_tab, text="Settings")
     frame = ttk.Frame(notebook, padding=12)
     notebook.add(frame, text="Export")
+    from widgets import style_main_tabs
+    style_main_tabs(notebook, fit_labels=True)
     frame.columnconfigure(1, weight=1)
 
     def persist():
@@ -647,6 +678,7 @@ def run_gui():
                 "auto_export": auto_var.get(),
                 "ui_theme": ui_theme_var.get(),
                 "window_position": config.get("window_position"),
+                "quest_popup_positions": config.get("quest_popup_positions", {}),
             }
         )
 
@@ -732,8 +764,49 @@ def run_gui():
     toolbar.pack(fill="x")
     Button(toolbar, text="Refresh", command=lambda: reload_roster()).pack(side="left")
     ttk.Label(toolbar, textvariable=roster_status).pack(side="left", padx=10)
-    roster_grid = RosterGrid(roster_tab)
-    roster_grid.pack(fill="both", expand=True)
+    roster_split = ttk.Panedwindow(roster_tab, orient='horizontal')
+    roster_split.pack(fill='both', expand=True)
+    roster_grid = RosterGrid(roster_split)
+    roster_split.add(roster_grid, weight=3)
+    quest_tab.details.destroy()
+    from character_pane import CharacterPane
+    quest_tab.details = CharacterPane(roster_split, quest_tab.close_details, quest_tab.render_details)
+    quest_tab.detail_split = roster_split
+    quest_tab.list.left.bind('<Button-1>', quest_tab.delete_character_cell)
+    quest_tab.list.left.unbind('<Return>')
+    quest_tab.list.left.configure(cursor='hand2')
+    def open_roster_quests(event, hover=False):
+        canvas = event.widget
+        if hover:
+            canvas.delete('name_hover')
+            canvas.configure(cursor='')
+        row = int(canvas.canvasy(event.y) // roster_grid.style.row_height)
+        characters = format_state['characters']
+        if not 0 <= row < len(characters) or not roster_grid._visible_data:
+            return
+        columns, _, offsets, _ = roster_grid._visible_data
+        x = canvas.canvasx(event.x)
+        specs = [spec for spec in format_state['fmt']['columns'] if spec['visible']]
+        for index, spec in enumerate(specs):
+            column = columns[index]
+            if (column.frozen == (canvas is roster_grid.left)
+                    and offsets[index] <= x < offsets[index] + column.width
+                    and spec['key'] == 'name'):
+                guid = characters[row]['guid']
+                if hover:
+                    canvas.configure(cursor='hand2')
+                    y = row * roster_grid.style.row_height
+                    canvas.create_rectangle(offsets[index]+1, y+1, offsets[index]+column.width-1,
+                                            y+roster_grid.style.row_height-1, outline=theme.GOLD,
+                                            width=2, tags='name_hover')
+                    return
+                quest_tab.open_character(guid)
+                return
+    roster_grid.left.bind('<Button-1>', open_roster_quests)
+    roster_grid.body.bind('<Button-1>', open_roster_quests)
+    for canvas in (roster_grid.left, roster_grid.body):
+        canvas.bind('<Motion>', lambda event: open_roster_quests(event, hover=True))
+        canvas.bind('<Leave>', lambda event: (event.widget.delete('name_hover'), event.widget.configure(cursor='')))
 
     def render_roster():
         fmt = format_state["fmt"]
@@ -752,6 +825,11 @@ def run_gui():
             return
         format_state["characters"] = characters
         professions_tab.load(characters)
+        quest_tab.load(characters)
+        try:
+            quest_log.publish(list(files), quest_tab.state)
+        except OSError as error:
+            quest_tab.notice.set(f"Quest assignments saved locally; addon sync failed: {error}")
         settings_tab.load(characters, settings, pending)
         render_roster()
         roster_status.set(f"{len(characters)} characters  ·  updated {datetime.now():%H:%M:%S}")

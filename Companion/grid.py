@@ -1,3 +1,4 @@
+from widgets import WoWScrollbar, bind_scroll_content
 """Spreadsheet-style grid drawn on canvases: frozen left columns, a frozen header, and scrolling everywhere else."""
 
 import ctypes
@@ -72,6 +73,7 @@ class Column:
     title_fg: str = "#ffffff"
     separator_before: bool = False
     group_key: str = ""
+    fixed_width: int = 0
 
 
 @dataclass
@@ -83,6 +85,8 @@ class Cell:
     spacing: int = 0
     italic: bool = False
     text_runs: tuple = ()  # (text, font color) segments within a cell
+    checked: object = None  # None for ordinary cells; bool for a checkbox.
+    removable: bool = False
 
 
 class RosterGrid(ttk.Frame):
@@ -94,9 +98,10 @@ class RosterGrid(ttk.Frame):
         self._make_fonts()
         self._visible_data = None
         self._redraw_job = None
+        self._content_size = (0, 0)
 
         def make_canvas(**options):
-            return tk.Canvas(self, bg=self.style.bg, highlightthickness=0, **options)
+            return tk.Canvas(self, bg=self.style.bg, highlightthickness=0, borderwidth=0, **options)
 
         self.band_height = MIN_BAND_HEIGHT
         self.title_height = MIN_TITLE_HEIGHT
@@ -106,8 +111,8 @@ class RosterGrid(ttk.Frame):
         self.left = make_canvas(yscrollincrement=self.style.row_height)
         self.body = make_canvas(yscrollincrement=self.style.row_height, xscrollincrement=20)
 
-        self.vsb = ttk.Scrollbar(self, orient="vertical", command=self._yview)
-        self.hsb = ttk.Scrollbar(self, orient="horizontal", command=self._xview)
+        self.vsb = WoWScrollbar(self, orient="vertical", command=self._yview)
+        self.hsb = WoWScrollbar(self, orient="horizontal", command=self._xview)
         self.body.configure(yscrollcommand=self._on_yscroll, xscrollcommand=self._on_xscroll)
 
         self.corner.grid(row=0, column=0, sticky="nsew")
@@ -117,7 +122,7 @@ class RosterGrid(ttk.Frame):
         self.vsb.grid(row=1, column=2, sticky="ns")
         self.hsb.grid(row=2, column=1, sticky="ew")
 
-        self.body.bind("<Configure>", self._schedule_redraw)
+        self.body.bind("<Configure>", self._resize_scrollregions)
         self.left.bind("<Configure>", self._schedule_redraw)
 
         for canvas in (self.corner, self.top, self.left, self.body):
@@ -161,10 +166,29 @@ class RosterGrid(ttk.Frame):
     def _on_shift_wheel(self, event):
         self.body.xview_scroll(-5 * (event.delta // 120 or (1 if event.delta > 0 else -1)), "units")
 
+    def _resize_scrollregions(self, event=None):
+        # Tk can move a canvas to a negative origin when its scroll region is
+        # smaller than the viewport. The reported fraction then stays at zero,
+        # leaving the frozen panes at a different origin. Pad both paired regions
+        # to the same viewport size so scrolling always has a valid origin.
+        width, height = self._content_size
+        width = max(width, self.body.winfo_width())
+        height = max(height, self.body.winfo_height())
+        frozen_width = sum(c.width for c in self._visible_data[0] if c.frozen) if self._visible_data else 0
+        self.body.configure(scrollregion=(0, 0, width, height))
+        self.top.configure(scrollregion=(0, 0, width, self.header_height))
+        self.left.configure(scrollregion=(0, 0, frozen_width, height))
+        self.left.yview_moveto(self.body.yview()[0])
+        self.top.xview_moveto(self.body.xview()[0])
+        self._schedule_redraw()
+
     def _autofit(self, columns, rows):
         """Size every column to its widest cell or title; widen the first column of a group if its title is wider."""
         spacing = self.style.spacing
         for index, column in enumerate(columns):
+            if column.fixed_width:
+                column.width = column.fixed_width
+                continue
             content = max((self._cell_length(row[index]) for row in rows), default=0)
             if column.vertical:
                 column.width = max(44, content + 20)
@@ -192,7 +216,7 @@ class RosterGrid(ttk.Frame):
                 font = self.f_bold_italic if cell.bold else self.f_italic
             else:
                 font = self.f_bold if cell.bold else self.f_body
-        return font.measure(cell.text) + cell.spacing * max(len(cell.text) - 1, 0)
+        return font.measure(cell.text) + cell.spacing * max(len(cell.text) - 1, 0) + (24 if cell.removable else 0)
 
     def _spaced_length(self, text, spacing):
         return sum(self.f_title.measure(ch) for ch in text) + spacing * max(len(text) - 1, 0)
@@ -237,6 +261,8 @@ class RosterGrid(ttk.Frame):
                 x_scroll += column.width
 
         self._visible_data = (columns, rows, offsets, frozen_width)
+        self._content_size = (scroll_width, body_height)
+        self._resize_scrollregions()
 
         if frozen_width:
             self.corner.create_line(
@@ -370,6 +396,20 @@ class RosterGrid(ttk.Frame):
     def _draw_cell(self, canvas, x, y, column, cell, stripe):
         height = self.style.row_height
         canvas.create_rectangle(x, y, x + column.width, y + height, fill=cell.bg or stripe, outline=self.style.line)
+        if cell.removable:
+            cy = y + height / 2
+            canvas.create_rectangle(x+3, cy-8, x+19, cy+8, fill='#8b1714', outline='#d44b3e')
+            canvas.create_line(x+7, cy-4, x+15, cy+4, fill='#ffe1c2', width=2)
+            canvas.create_line(x+15, cy-4, x+7, cy+4, fill='#ffe1c2', width=2)
+            x += 24
+        if cell.checked is not None:
+            cx, cy = x + column.width / 2, y + height / 2
+            canvas.create_rectangle(cx-6, cy-6, cx+6, cy+6,
+                                    fill=theme.PANEL, outline=theme.GOLD)
+            if cell.checked:
+                canvas.create_line(cx-4, cy, cx-1, cy+3, cx+4, cy-4,
+                                   fill=theme.GOLD, width=2)
+            return
         if not cell.text:
             return
         if cell.italic:

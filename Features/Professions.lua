@@ -116,10 +116,20 @@ function ATA:ScanProfessions(record)
         end
         for id, profession in pairs(byID) do
             if tiers[id] then
-                self:SortProfessionTiers(tiers[id])
-                profession.expansions = tiers[id]
-            elseif complete and not secondaryTiers[id] then
+                -- Closed profession windows can return tier names with no skill
+                -- data. Never let those partial results erase a captured rank.
+                local captured = {}
+                for _, tier in ipairs(profession.expansions) do
+                    captured[tier.skillLineID] = tier
+                end
+                for _, tier in ipairs(tiers[id]) do
+                    if tier.maxSkillLevel > 0 then captured[tier.skillLineID] = tier end
+                end
                 profession.expansions = {}
+                for _, tier in pairs(captured) do
+                    profession.expansions[#profession.expansions + 1] = tier
+                end
+                self:SortProfessionTiers(profession.expansions)
             end
         end
 

@@ -59,6 +59,9 @@ while IFS= read -r line || [ -n "$line" ]; do
   if [ "$file_path" = "AppSync.lua" ] && [ ! -f "$file_path" ]; then
     file_path="scripts/AppSync.default.lua"
   fi
+  if [ "$file_path" = "QuestSync.lua" ] && [ ! -f "$file_path" ]; then
+    file_path="scripts/QuestSync.default.lua"
+  fi
 
   if [ ! -f "$file_path" ]; then
     echo "ERROR: TOC references a missing file: $line"

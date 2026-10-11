@@ -1,3 +1,4 @@
+from widgets import WoWScrollbar, bind_scroll_content
 from widgets import Button, Section, caption_image
 """Settings tab: Main Selection, Tracking and Formatting pages, chosen from a list on the left."""
 
@@ -15,15 +16,14 @@ COLUMNS = 4
 class ScrollFrame(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.canvas = tk.Canvas(self, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0, bg="#24211b")
+        scrollbar = WoWScrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
         self.inner = ttk.Frame(self.canvas, padding=12)
         window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
-        self.inner.bind("<Configure>", lambda _: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(window, width=e.width))
+        bind_scroll_content(self.canvas, self.inner, window)
         self.bind_all("<MouseWheel>", self._on_wheel, add="+")
 
     def _on_wheel(self, event):
@@ -118,7 +118,7 @@ class SettingsTab(ttk.Frame):
             self.format_panel._build_expansions()
         self.update_idletasks()
         canvas = self.pages[ name ].canvas
-        canvas.configure(scrollregion=canvas.bbox("all"))
+        canvas.configure(scrollregion=(0, 0, canvas.winfo_width(), max(canvas.winfo_height(), self.pages[name].inner.winfo_reqheight())))
         canvas.yview_moveto(0)
 
     def load(self, characters, settings, pending):

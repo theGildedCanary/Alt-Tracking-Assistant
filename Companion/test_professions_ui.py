@@ -9,6 +9,12 @@ from professions_ui import ProfessionsTab, SpacedHeading, STATE_KEY, normalize_s
 
 
 class ProfessionsDashboardTests(unittest.TestCase):
+    def test_partial_expansion_scan_displays_saved_overall_rank(self):
+        profession = {'skillLevel': 98, 'maxSkillLevel': 100,
+                      'expansions': [{'name': 'Midnight Alchemy', 'skillLevel': 0, 'maxSkillLevel': 0}]}
+        self.assertEqual(progress_tiers('primary', profession),
+                         [{'name': 'Overall skill', 'skillLevel': 98, 'maxSkillLevel': 100}])
+
     def test_live_color_and_font_changes(self):
         root = tk.Tk(); root.withdraw(); self.addCleanup(root.destroy)
         tab = ProfessionsTab(root, [{"guid": "a", "professions": ["171"]}])

@@ -2,13 +2,14 @@
 ## Title: Alt Tracking Assistant
 ## Notes: Account-wide alternate character progression and checklist tracker for World of Warcraft Retail.
 ## Author: Gilded Canary
-## Version: 2.1.1
+## Version: 2.2.0
 ## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\ATAIcon.png
 ## SavedVariables: AltTrackingAssistantDB
 
 # Core framework and data model
 Core\Core.lua
 AppSync.lua
+QuestSync.lua
 
 # Tracker definitions and character progression scanning
 Features\BattleForAzeroth.lua
@@ -23,6 +24,7 @@ Features\WarWithin.lua
 Features\Shadowlands.lua
 Features\Midnight.lua
 Features\Professions.lua
+Features\QuestLog.lua
 
 # Main report window and minimap access
 UI\Theme.lua

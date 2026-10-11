@@ -1,3 +1,4 @@
+from widgets import WoWScrollbar, bind_scroll_content
 from widgets import Button, Section
 """Character-specific profession dashboard, backed by GUID selections."""
 
@@ -61,7 +62,7 @@ def progress_tiers(slot, profession):
     tiers = [tier for tier in values if isinstance(tier, dict)
              and isinstance(tier.get("maxSkillLevel"), (int, float)) and tier["maxSkillLevel"] > 0]
     maximum = profession.get("maxSkillLevel")
-    if not tiers and slot == "archaeology" and isinstance(maximum, (int, float)) and maximum > 0:
+    if not tiers and isinstance(maximum, (int, float)) and maximum > 0:
         tiers = [{"name": "Overall skill", "skillLevel": profession.get("skillLevel", 0),
                   "maxSkillLevel": profession["maxSkillLevel"]}]
 
@@ -76,15 +77,14 @@ def progress_tiers(slot, profession):
 class ScrollArea(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.canvas = tk.Canvas(self, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0, bg="#24211b")
+        scrollbar = WoWScrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
         self.inner = ttk.Frame(self.canvas)
         window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
-        self.inner.bind("<Configure>", lambda _: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda event: self.canvas.itemconfigure(window, width=event.width))
+        bind_scroll_content(self.canvas, self.inner, window)
         self.bind_all("<MouseWheel>", self._wheel, add="+")
 
     def _wheel(self, event):

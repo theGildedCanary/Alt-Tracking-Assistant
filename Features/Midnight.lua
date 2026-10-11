@@ -281,6 +281,7 @@ function ATA:ScanCurrentCharacter()
     record.level10Date = GetLevelTenAchievementDate() or record.level10Date
     record.lastScanned = time()
     self:ScanProfessions(record)
+    self:ScanQuestLog(record)
     record.progress = record.progress or {}
     for expansionKey, expansionProgress in pairs(progress) do
         record.progress[expansionKey] = expansionProgress

@@ -8,7 +8,7 @@ on:
       release_tag:
         description: Existing release tag to rebuild
         required: true
-        default: v2.1.1
+        default: v2.2.0
 
 permissions:
   contents: write
@@ -97,6 +97,7 @@ jobs:
           }
 
           Copy-Item -LiteralPath scripts/AppSync.default.lua -Destination "$packageDir/AppSync.lua"
+          Copy-Item -LiteralPath scripts/QuestSync.default.lua -Destination "$packageDir/QuestSync.lua"
           Copy-Item -LiteralPath Companion/README.md -Destination "$packageDir/Companion-README.md"
 
           $zipName = "AltTrackingAssistant-$env:RELEASE_TAG.zip"

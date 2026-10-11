@@ -8,6 +8,19 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
+## [2.2.0] - 2026-10-10
+
+### Added
+
+- Companion Quest Log between Professions and Settings, with opt-in character selection and weekly, daily, and manual task summaries.
+- Character side panel with quest ID assignments, automatic quest names, reset frequency when available, pickup state, ready-to-turn-in indicators, and pending / in progress / completed status.
+- Editable and removable manual tasks with notes / steps, priority, status, and optional daily or weekly resets; assignments persist locally.
+- Addon quest snapshots and a separate QuestSync.lua handoff. Offline quest snapshots show when a new scan is needed after a reset.
+- Quest Log uses vertical quest-name columns and four per-character quest indicators; details open on character-name click and include a Close control. Quest Log panels, inputs, dropdowns, and notes use the existing brown palette.
+- Character picker hides player IDs, details hide quest IDs, and quest nicknames take precedence in vertical headings. Quest entry supports automatic or manual reset frequency; daily resets occur at 11 a.m. EST and weekly resets at Tuesday 11 a.m. EST (fixed UTC−5).
+- Click quest headings or quest / to do names to assign existing tasks to multiple added characters. Assignment selections persist, with independent manual progress and removal per character.
+- Shared to dos have vertical tracking columns; column groups use white text with dark purple, blue, and green backgrounds for Weeklies, Dailies, and To dos. The character list omits realms. Quest Log refreshes with the rest of the app, and its assignment / task editor popups remember window placement.
+
 ## [2.1.1] - 2026-10-10
 
 ### Changed
