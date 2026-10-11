@@ -2,45 +2,46 @@
 import re
 import theme
 
+PROFILE_IMAGES = {
+    'interface/petbattles/weather-sandstorm': 'weather-sandstorm.png',
+    'interface/questframe/ui-horizontalbreak': 'ui-horizontalbreak.png',
+}
+HEADER_IMAGES = {
+    'Sandstorm': 'Sandstorm',
+    'Arcane Storm': 'ArcaneStorm',
+    'Blizzard': 'Blizzard',
+    'Burnt Earth': 'BurntEarth',
+    'Darkness': 'Darkness',
+    'Moonlight': 'Moonlight',
+    'Earth': 'Mud',
+    'Rain': 'Rain',
+    'Electrical Storm': 'StaticField',
+    'Sunlight': 'Sunlight',
+    'Fel': 'ToxicFumes',
+    'Wind': 'Windy',
+}
+for weather in HEADER_IMAGES.values():
+    PROFILE_IMAGES['interface/petbattles/weather-'+weather.lower()] = 'weather-'+weather.lower()+'.png'
 
-def render_info(widget, source):
-    widget.configure(state='normal')
-    widget.delete('1.0', 'end')
-    for tag, options in {
-        'bold': {'font': ('Montserrat', 9, 'bold')},
-        'italic': {'font': ('Montserrat', 9, 'italic')},
-        'code': {'font': ('Consolas', 9), 'background': theme.PANEL_ALT},
-        'heading': {'font': ('Montserrat', 12, 'bold'), 'foreground': theme.GOLD, 'spacing1': 6, 'spacing3': 6},
-        'table': {'font': ('Consolas', 9), 'spacing1': 2, 'spacing3': 2},
-    }.items():
-        widget.tag_configure(tag, **options)
-    def inline(text, base=()):
-        pattern = r'(\*\*.+?\*\*|\*[^*]+?\*|`[^`]+?`)'
-        for part in re.split(pattern, text):
-            tag = 'bold' if part.startswith('**') and part.endswith('**') else 'italic' if part.startswith('*') and part.endswith('*') else 'code' if part.startswith('`') and part.endswith('`') else None
-            trim = 2 if tag == 'bold' else 1
-            widget.insert('end', part[trim:-trim] if tag else part, base + ((tag,) if tag else ()))
-    lines = source.splitlines(keepends=True)
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        if line.strip().startswith('|') and line.strip().endswith('|'):
-            rows = []
-            while index < len(lines) and lines[index].strip().startswith('|') and lines[index].strip().endswith('|'):
-                cells = [cell.strip() for cell in lines[index].strip().strip('|').split('|')]
-                if not all(re.fullmatch(r':?-{3,}:?', cell) for cell in cells):
-                    rows.append(cells)
-                index += 1
-            count = max((len(row) for row in rows), default=0)
-            widths = [max((len(row[col]) if col < len(row) else 0 for row in rows), default=0) for col in range(count)]
-            for row in rows:
-                widget.insert('end', ' | '.join((row[col] if col < len(row) else '').ljust(widths[col]) for col in range(count)) + '\n', 'table')
-            continue
-        heading = re.match(r'^#{1,6}\s+(.*)', line.rstrip('\n'))
-        if heading:
-            inline(heading.group(1), ('heading',))
-            widget.insert('end', '\n')
-        else:
-            inline(re.sub(r'^\s*[-*+]\s+', '• ', line))
-        index += 1
-    widget.configure(state='disabled')
+
+def header_name(source):
+    html_image = re.match(r'\s*<img\b[^>]*\bsrc=["\']([^"\']+)["\'][^>]*>', source, re.I)
+    if html_image:
+        weather = re.search(r'weather-([^/.]+)', html_image.group(1), re.I)
+        if weather:
+            return next((name for name, value in HEADER_IMAGES.items() if value.lower() == weather.group(1).lower()), 'None')
+    return 'None'
+
+
+def set_header(source, name):
+    if header_name(source) != 'None':
+        source = re.sub(r'^\s*<img\b[^>]*>[ \t]*(?:\r?\n)?', '', source, count=1, flags=re.I)
+    if name == 'None':
+        return source
+    return '<img src="Interface\\PETBATTLES\\Weather-'+HEADER_IMAGES[name]+'" width="512" height="128" align="center">\n'+source
+
+
+def render_info(widget, source, family='Montserrat'):
+    from info_html import render_html
+    widget.configure(font=(family, 9), spacing1=0, spacing2=0, spacing3=0)
+    render_html(widget, source, family, PROFILE_IMAGES)

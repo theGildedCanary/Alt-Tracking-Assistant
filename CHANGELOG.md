@@ -8,18 +8,36 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
-## [2.2.0] - 2026-10-10
+## [2.2.0] - 2026-10-11
 
 ### Added
 
-- Companion Quest Log between Professions and Settings, with opt-in character selection and weekly, daily, and manual task summaries.
-- Character side panel with quest ID assignments, automatic quest names, reset frequency when available, pickup state, ready-to-turn-in indicators, and pending / in progress / completed status.
-- Editable and removable manual tasks with notes / steps, priority, status, and optional daily or weekly resets; assignments persist locally.
-- Addon quest snapshots and a separate QuestSync.lua handoff. Offline quest snapshots show when a new scan is needed after a reset.
-- Quest Log uses vertical quest-name columns and four per-character quest indicators; details open on character-name click and include a Close control. Quest Log panels, inputs, dropdowns, and notes use the existing brown palette.
-- Character picker hides player IDs, details hide quest IDs, and quest nicknames take precedence in vertical headings. Quest entry supports automatic or manual reset frequency; daily resets occur at 11 a.m. EST and weekly resets at Tuesday 11 a.m. EST (fixed UTC−5).
-- Click quest headings or quest / to do names to assign existing tasks to multiple added characters. Assignment selections persist, with independent manual progress and removal per character.
-- Shared to dos have vertical tracking columns; column groups use white text with dark purple, blue, and green backgrounds for Weeklies, Dailies, and To dos. The character list omits realms. Quest Log refreshes with the rest of the app, and its assignment / task editor popups remember window placement.
+- Companion Quest Log with opt-in characters, saved character ordering, class-colored names in Level - Name format, and vertical nickname columns.
+- Weekly, daily, and shared task columns with completion checkboxes directly in the dashboard; completion stays independent for each character.
+- Quest and task creation from the dashboard, with nickname, notes, priority, and multiple-character assignments.
+- Roster character panel with Info, To Do, and Notes tabs; selected roster names stay highlighted while the panel is open.
+- Character Info editor with supported HTML formatting, an HTML help reference, a hex/color picker, and alphabetized WoW weather image headers. Bundled fonts include Montserrat, Skurri, Morpheus, and Friz Quadrata TT.
+- Addon Notes / To Do automatic tracking using quest IDs, achievement IDs, or item IDs, separated from manual tasks.
+- Weekday reset selections in the addon and Companion. All seven days count as Daily, one selected day as Weekly, and other combinations use those selected days. Resets occur at 11 a.m. fixed EST (UTC−5); selecting no days disables resets.
+- Companion Notes tab with editable addon Notes / History, collapsible years and days with entry counts, and compact pen/X actions before each note. Editing preserves the original entry date.
+- Separate options to remove a quest or task from one character or delete it from all assigned characters.
+
+### Changed
+
+- Character To Do details combine automatic items under Auto Tracking and show compact reset/priority markers after titles: [D], [W], [1] High, [2] Medium, and [3] Low.
+- Quest status indicators use a circle for not picked up, empty checkbox for picked up or pending, checked checkbox for completed, ? for an unavailable scan, and — for an unassigned item.
+- Companion uses the WoW theme throughout: brown backgrounds, gold borders, WoW scrollbars/dropdown arrows, and centered uppercase Montserrat tabs with hover highlights.
+- Quest editor/assignment windows remember their placement. Removed player IDs and realms from Quest Log character labels.
+- Rescan refreshes available character data and then reloads WoW's UI to load Companion edits and save updated snapshots; it is unavailable in combat.
+
+### Fixed
+
+- Quest scanning waits until after entering the world so login data and the character record are available.
+- Quest/To Do checkbox updates avoid rebuilding the entire character panel or highlighting dashboard rows.
+- Corrected Quest Log and Professions scrolling and preserved previously scanned profession tier information.
+- Improved character-panel loading, heading spacing, text alignment, and supported HTML rendering, including horizontal rules, text transforms, padding, and justified paragraphs.
+- Added timestamp-based merging and deletion tracking so old SavedVariables do not overwrite newer task/note edits or restore deleted items.
+- Release packages include neutral AppSync.lua, QuestSync.lua, and NotesSync.lua templates, excluding personal settings, assignments, and history.
 
 ## [2.1.1] - 2026-10-10
 

@@ -78,30 +78,7 @@ jobs:
 
       - name: Build combined package
         shell: pwsh
-        run: |
-          $packageDir = 'build/release/AltTrackingAssistant'
-          New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
-
-          foreach ($folder in @('Core', 'Features', 'Media', 'UI')) {
-            Copy-Item -LiteralPath $folder -Destination $packageDir -Recurse
-          }
-
-          foreach ($file in @(
-            'AltTrackingAssistant.toc',
-            'AltTrackingAssistantCompanion.exe',
-            'README.md',
-            'CHANGELOG.md',
-            'LICENSE'
-          )) {
-            Copy-Item -LiteralPath $file -Destination $packageDir
-          }
-
-          Copy-Item -LiteralPath scripts/AppSync.default.lua -Destination "$packageDir/AppSync.lua"
-          Copy-Item -LiteralPath scripts/QuestSync.default.lua -Destination "$packageDir/QuestSync.lua"
-          Copy-Item -LiteralPath Companion/README.md -Destination "$packageDir/Companion-README.md"
-
-          $zipName = "AltTrackingAssistant-$env:RELEASE_TAG.zip"
-          Compress-Archive -LiteralPath $packageDir -DestinationPath $zipName -Force
+        run: ./scripts/package-release.ps1 -ReleaseTag "$env:RELEASE_TAG"
 
       - name: Attach combined ZIP to release
         shell: pwsh

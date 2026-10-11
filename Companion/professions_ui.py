@@ -96,7 +96,7 @@ class SpacedHeading(tk.Canvas):
     """Clickable, keyboard-accessible heading with two-point letter spacing."""
     def __init__(self, parent, font, colors, command=None):
         super().__init__(parent, width=1, height=font.metrics("linespace") + 18, highlightthickness=1 if command else 0,
-                         highlightbackground=colors["border"], highlightcolor=colors["text"],
+                         highlightbackground=colors["border"], highlightcolor=theme.GOLD,
                          bg=colors["control"], takefocus=bool(command), cursor="hand2" if command else "")
         self.font, self.colors, self.command = font, colors, command
         self.text = ""
@@ -118,40 +118,39 @@ class SpacedHeading(tk.Canvas):
 
     def draw(self):
         self.delete("all")
-        if self.colors["background"] != theme.UI_THEMES["Light Mode"]["background"]:
-            from pathlib import Path
-            from PIL import Image, ImageTk, ImageDraw
-            width, height = max(1, self.winfo_width()), int(self.cget("height"))
-            if not hasattr(self, "_panel_texture"):
-                with Image.open(Path(theme.__file__).parent / "assets" / "theme" / "PanelBackground.png") as image:
-                    self._panel_texture = Image.blend(image.convert("RGB"), Image.new("RGB", image.size, theme.PANEL), .55)
-            panel = Image.new("RGBA", (width, height))
-            for x in range(0, width, 256):
-                panel.paste(self._panel_texture, (x, 0))
-            mask = Image.new("L", panel.size)
-            ImageDraw.Draw(mask).rounded_rectangle((0, 0, width-1, height-1), radius=5, fill=255)
-            panel.putalpha(mask)
-            ImageDraw.Draw(panel).rounded_rectangle((0, 0, width-1, height-1), radius=5, outline=self.colors["border"])
-            self._panel_photo = ImageTk.PhotoImage(panel, master=self)
-            self.create_image(0, 0, anchor="nw", image=self._panel_photo)
+        from pathlib import Path
+        from PIL import Image, ImageTk, ImageDraw
+        width, height = max(1, self.winfo_width()), int(self.cget("height"))
+        if not hasattr(self, "_panel_texture"):
+            with Image.open(Path(theme.__file__).parent / "assets" / "theme" / "PanelBackground.png") as image:
+                self._panel_texture = Image.blend(image.convert("RGB"), Image.new("RGB", image.size, theme.PANEL), .55)
+        panel = Image.new("RGBA", (width, height))
+        for x in range(0, width, 256):
+            panel.paste(self._panel_texture, (x, 0))
+        mask = Image.new("L", panel.size)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, width-1, height-1), radius=5, fill=255)
+        panel.putalpha(mask)
+        ImageDraw.Draw(panel).rounded_rectangle((0, 0, width-1, height-1), radius=5, outline=self.colors["border"])
+        self._panel_photo = ImageTk.PhotoImage(panel, master=self)
+        self.create_image(0, 0, anchor="nw", image=self._panel_photo)
         spacing = self.winfo_fpixels("2p")
         length = sum(self.font.measure(ch) for ch in self.text) + spacing * max(0, len(self.text) - 1)
         x = max(8, (self.winfo_width() - length) / 2)
         for char in self.text:
             width = self.font.measure(char)
             self.create_text(x + width / 2, int(self.cget("height")) / 2,
-                             text=char, fill=theme.GOLD if self.colors["background"] != theme.UI_THEMES["Light Mode"]["background"] else self.colors["text"], font=self.font)
+                             text=char, fill=theme.GOLD, font=self.font)
             x += width + spacing
 
 
 class ProfessionsTab(ttk.Frame):
-    def __init__(self, parent, state=None, on_save=None, ui_theme="Light Mode", fmt=None):
+    def __init__(self, parent, state=None, on_save=None, ui_theme="WoW Mode", fmt=None):
         super().__init__(parent, padding=10)
         self.state = normalize_state(state)
         self.on_save = on_save
         self.records = {}
         self.expanded = set()
-        self.mode = ui_theme
+        self.mode = "WoW Mode"
         self.fmt = roster_format.normalize(fmt)
         self._make_fonts()
         self.status = tk.StringVar()
@@ -179,8 +178,8 @@ class ProfessionsTab(ttk.Frame):
         self.set_theme(ui_theme)
 
     def set_theme(self, mode):
-        self.mode = mode
-        colors = theme.UI_THEMES[mode]
+        self.mode = "WoW Mode"
+        colors = theme.UI_THEMES[self.mode]
         self._style_checkboxes(colors)
         for area in (self.sidebar, self.details):
             area.canvas.configure(background=colors["background"])

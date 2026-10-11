@@ -23,6 +23,7 @@ build/
 # Companion app
 /AppSync.lua
 /QuestSync.lua
+/NotesSync.lua
 /AltTrackingAssistantCompanion.exe
 Companion/build/
 Companion/dist/

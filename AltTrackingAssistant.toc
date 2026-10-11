@@ -1,6 +1,6 @@
 ## Interface: 120100
 ## Title: Alt Tracking Assistant
-## Notes: Account-wide alternate character progression and checklist tracker for World of Warcraft Retail.
+## Notes: Track alt progression, professions, quests, recurring tasks, and character history in World of Warcraft Retail.
 ## Author: Gilded Canary
 ## Version: 2.2.0
 ## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\ATAIcon.png
@@ -10,6 +10,7 @@
 Core\Core.lua
 AppSync.lua
 QuestSync.lua
+NotesSync.lua
 
 # Tracker definitions and character progression scanning
 Features\BattleForAzeroth.lua

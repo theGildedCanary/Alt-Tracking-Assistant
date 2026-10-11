@@ -238,6 +238,10 @@ def effective_settings(conn, paths):
 
 def _lua_value(value, indent=0):
     pad = "    " * (indent + 1)
+    if value is None:
+        return "nil"
+    if isinstance(value, (list, tuple)):
+        return "{ " + ", ".join(_lua_value(v, indent + 1) for v in value) + " }"
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):

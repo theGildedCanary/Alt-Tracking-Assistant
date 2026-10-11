@@ -3,11 +3,15 @@ local _, ATA = ...
 function ATA:ScanQuestLog(record)
     local assignments = _G.AltTrackingAssistantQuestSync or {}
     local selected = assignments[record.guid]
-    if type(selected) ~= "table" then return end
+    selected = type(selected) == "table" and selected or {}
+    self:SyncTodoAssignments(record)
+    local ids = {}
+    for key in pairs(selected) do if tonumber(key) then ids[key] = true end end
+    for _, todo in ipairs(record.todos) do if todo.questID then ids[tostring(todo.questID)] = true end end
     local now = GetServerTime()
     local previous = record.questLog or {}
     local quests = {}
-    for key in pairs(selected) do
+    for key in pairs(ids) do
         local id = tonumber(key)
         if id and id > 0 then
             local old = (previous.quests or {})[tostring(id)] or {}
@@ -49,7 +53,17 @@ function ATA:ScanQuestLog(record)
     end
     local daily = GetQuestResetTime()
     local weekly = C_DateAndTime and C_DateAndTime.GetSecondsUntilWeeklyReset and C_DateAndTime.GetSecondsUntilWeeklyReset()
-    record.questLog = { quests = quests, scannedAt = now,
+    local achievements, items = {}, {}
+    for _, todo in ipairs(record.todos) do
+        if todo.achievementID and GetAchievementInfo then
+            local _, title, _, completed, _, _, _, _, _, _, _, _, earned = GetAchievementInfo(todo.achievementID)
+            achievements[tostring(todo.achievementID)] = {title=title, status=(earned == true or earned == nil and completed) and "Completed" or "Pending", scannedAt=now}
+        elseif todo.itemID and C_Item and C_Item.GetItemCount then
+            local count = C_Item.GetItemCount(todo.itemID, true, false, true, false)
+            items[tostring(todo.itemID)] = {title=C_Item.GetItemNameByID(todo.itemID), status=count > 0 and "Completed" or "Pending", scannedAt=now}
+        end
+    end
+    record.questLog = { quests = quests, achievements=achievements, items=items, scannedAt = now,
         nextDailyReset = type(daily) == "number" and daily > 0 and daily <= 86400 and now + daily or nil,
         nextWeeklyReset = type(weekly) == "number" and weekly > 0 and weekly <= 604800 and now + weekly or nil,
     }
@@ -57,12 +71,32 @@ end
 
 ATA.questDataRequested = {}
 local frame = CreateFrame("Frame")
-for _, event in ipairs({"PLAYER_LOGIN", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_TURNED_IN", "QUEST_DATA_LOAD_RESULT"}) do
+for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_TURNED_IN", "QUEST_DATA_LOAD_RESULT", "ACHIEVEMENT_EARNED", "CRITERIA_UPDATE", "BAG_UPDATE_DELAYED", "ITEM_DATA_LOAD_RESULT"}) do
     frame:RegisterEvent(event)
 end
 local scheduled = false
-frame:SetScript("OnEvent", function()
-    if scheduled then return end
+local worldReady = false
+local loginQueued = false
+frame:SetScript("OnEvent", function(_, event, initialLogin, reloadingUI)
+    if event == "PLAYER_LOGIN" then return end
+    if event == "PLAYER_ENTERING_WORLD" then
+        if loginQueued or worldReady then return end
+        loginQueued = true
+        -- The main character scan also waits three seconds after entering the world.
+        -- Run after it so new characters have a record and quest data can populate.
+        C_Timer.After(4, function()
+            worldReady = true
+            local guid = UnitGUID("player")
+            local record = ATA.db and ATA.db.characters[guid]
+            if not record and ATA.ScanCurrentCharacter then
+                ATA:ScanCurrentCharacter()
+                record = ATA.db and ATA.db.characters[guid]
+            end
+            if record then ATA:ScanQuestLog(record) end
+        end)
+        return
+    end
+    if not worldReady or scheduled then return end
     scheduled = true
     C_Timer.After(0.5, function()
         scheduled = false
@@ -71,3 +105,71 @@ frame:SetScript("OnEvent", function()
         if record then ATA:ScanQuestLog(record) end
     end)
 end)
+
+-- Manual reset days use ISO weekdays (Monday=1), at 11 a.m. fixed EST.
+function ATA:NextTodoReset(reset, now, days)
+    if reset ~= "Daily" and reset ~= "Weekly" and reset ~= "Custom" then return nil end
+    local boundary = math.floor((now - 57600) / 86400) * 86400 + 57600
+    for offset=0,7 do
+        local candidate = boundary + offset * 86400
+        local day = (math.floor(candidate / 86400) + 3) % 7 + 1
+        local selected = reset == "Daily" or reset == "Weekly" and #(days or {}) == 0 and day == 2
+        if reset == "Custom" or reset == "Weekly" then for _, value in ipairs(days or {}) do if value == day then selected = true end end end
+        if candidate > now and selected then return candidate end
+    end
+end
+function ATA:TodoState(record, todo)
+    local now = GetServerTime()
+    local log = record.questLog or {}
+    local data = todo.questID and (log.quests or {})[tostring(todo.questID)]
+        or todo.achievementID and (log.achievements or {})[tostring(todo.achievementID)]
+        or todo.itemID and (log.items or {})[tostring(todo.itemID)]
+    local automatic = todo.questID or todo.achievementID or todo.itemID
+    local reset = todo.questID and ((todo.resetMode and todo.resetMode ~= "Auto") and todo.resetMode or data and data.reset or "Unknown") or todo.reset or "None"
+    if automatic then
+        local boundary = todo.resetDays and self:NextTodoReset(reset, data and data.scannedAt or log.scannedAt or now, todo.resetDays) or reset == "Daily" and log.nextDailyReset or reset == "Weekly" and log.nextWeeklyReset
+        if not data or boundary and now >= boundary then return false, reset, "?" end
+        return data.status == "Completed", reset, todo.questID and not data.pickedUp and data.status ~= "Completed" and "o" or nil
+    end
+    local due = todo.resetAt or self:NextTodoReset(reset, todo.changedAt or todo.created or now, todo.resetDays)
+    if due and now >= due then
+        todo.done = false; todo.status = "Pending"; todo.changedAt = now
+        due = self:NextTodoReset(reset, now, todo.resetDays)
+    end
+    todo.resetAt = due
+    return todo.done, reset
+end
+
+function ATA:SyncTodoAssignments(record)
+    local selected = (_G.AltTrackingAssistantQuestSync or {})[record.guid] or {}
+    record.todos = record.todos or {}
+    record.todoDeleted = record.todoDeleted or {}
+    for id, stamp in pairs(selected._deleted or {}) do
+        record.todoDeleted[id] = math.max(record.todoDeleted[id] or 0, stamp)
+    end
+    for _, incoming in ipairs(selected._tasks or {}) do
+        local found
+        for _, todo in ipairs(record.todos) do if todo.id == incoming.id then found = todo; break end end
+        if (record.todoDeleted[incoming.id] or 0) < (incoming.changedAt or 0) then
+            if not found then found = {}; table.insert(record.todos, found) end
+            if (incoming.changedAt or 0) > (found.changedAt or -1) then
+                for key, value in pairs(incoming) do found[key] = value end
+                found.text = incoming.title
+                found.done = incoming.status == "Completed"
+            end
+        end
+    end
+    for index = #record.todos, 1, -1 do
+        local todo = record.todos[index]
+        if (record.todoDeleted[todo.id] or 0) >= (todo.changedAt or todo.created or 0) then table.remove(record.todos, index) end
+    end
+end
+
+function ATA:RefreshCompanionTasks()
+    for _, record in pairs(self.db and self.db.characters or {}) do
+        self:SyncTodoAssignments(record)
+        for _, todo in ipairs(record.todos or {}) do
+            self:TodoState(record, todo)
+        end
+    end
+end

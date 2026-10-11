@@ -9,6 +9,7 @@ import theme
 def style_main_tabs(notebook, point_size=8, user_icon=False, fit_labels=False):
     """Centered Montserrat captions with point-based tracking and active weight."""
     labels = {tab: notebook.tab(tab, 'text').upper() for tab in notebook.tabs()}
+    notebook._hover_tab = None
     def refresh(event=None):
         scale = notebook.winfo_fpixels('1p')
         fonts = {}
@@ -23,6 +24,7 @@ def style_main_tabs(notebook, point_size=8, user_icon=False, fit_labels=False):
         images = []
         for tab, text in labels.items():
             active = tab == notebook.select()
+            highlighted = active or tab == notebook._hover_tab
             font = fonts['Bold' if active else 'Regular']
             length = sum(font.getlength(c) for c in text) + spacing*(len(text)-1)
             icon = user_icon and text in ('CHARACTER INFO', 'INFO')
@@ -33,12 +35,12 @@ def style_main_tabs(notebook, point_size=8, user_icon=False, fit_labels=False):
             draw = ImageDraw.Draw(art)
             x, y = (tab_width-length-icon_width)/2 + icon_width, (height-bounds[3]+bounds[1])/2-bounds[1]
             for char in text:
-                draw.text((x, y), char, font=font, fill=theme.GOLD if active else theme.MUTED_TEXT)
+                draw.text((x, y), char, font=font, fill=theme.GOLD if highlighted else theme.MUTED_TEXT)
                 x += font.getlength(char)+spacing
             if icon:
                 cx = (tab_width-length-icon_width)/2 + 3*scale
                 cy = height/2
-                color = theme.GOLD if active else theme.MUTED_TEXT
+                color = theme.GOLD if highlighted else theme.MUTED_TEXT
                 draw.ellipse((cx-1.6*scale, cy-4*scale, cx+1.6*scale, cy-.8*scale), fill=color)
                 draw.rounded_rectangle((cx-3.2*scale, cy, cx+3.2*scale, cy+4*scale), radius=1.6*scale, fill=color)
             image = ImageTk.PhotoImage(art, master=notebook)
@@ -56,27 +58,45 @@ def style_main_tabs(notebook, point_size=8, user_icon=False, fit_labels=False):
                 for filename in ('TabInactive.png', 'TabActive.png'):
                     art = Image.open(assets / filename)
                     cropped.append(ImageTk.PhotoImage(art.crop((0, 0, art.width, art.height-6)), master=root))
+                inactive = Image.open(assets / 'TabInactive.png').convert('RGBA')
+                active = Image.open(assets / 'TabActive.png').convert('RGBA')
+                hover = Image.blend(inactive, active, .45)
+                cropped.append(ImageTk.PhotoImage(hover.crop((0, 0, hover.width, hover.height-6)), master=root))
                 root._character_tab_art = cropped
-                style.element_create('Character.tab', 'image', cropped[0], ('selected', cropped[1]),
+                style.element_create('Character.tab', 'image', cropped[0], ('selected', cropped[1]), ('active', '!selected', cropped[2]),
                                      border=(6, 6, 6, 0), width=1, sticky='nsew')
             style.layout('Character.TNotebook.Tab', [('Character.tab', {
                 'sticky': 'nsew', 'children': [('Notebook.label', {'sticky': 'nsew'})]})])
         style.configure('Character.TNotebook.Tab', padding=0)
         style.configure('Character.TNotebook', tabmargins=(0, 2, 0, 0))
         notebook.configure(style='Character.TNotebook')
+    def hover(event=None):
+        tab = None
+        if event is not None:
+            try:
+                tab = notebook.tabs()[notebook.index(f'@{event.x},{event.y}')]
+            except tk.TclError:
+                pass
+        if tab == notebook.select():
+            tab = None
+        if tab != notebook._hover_tab:
+            notebook._hover_tab = tab
+            refresh()
+    notebook.bind('<Motion>', hover, add='+')
+    notebook.bind('<Leave>', lambda _: hover(), add='+')
     notebook.bind('<<NotebookTabChanged>>', refresh, add='+')
     refresh()
 
 
 class WoWScrollbar(tk.Canvas):
     """Blizzard-style arrow buttons, dark track and beveled metal thumb."""
-    def __init__(self, parent, orient='vertical', command=None):
+    def __init__(self, parent, orient='vertical', command=None, **kwargs):
         self.vertical = orient == 'vertical'
         self.command = command
         self.first, self.last = 0.0, 1.0
         self.drag = None
         super().__init__(parent, width=18, height=18, bg='#0e0d0a',
-                         borderwidth=0, highlightthickness=0)
+                         borderwidth=0, highlightthickness=0, **kwargs)
         self.bind('<Configure>', self._draw)
         self.bind('<Button-1>', self._press)
         self.bind('<B1-Motion>', self._motion)
@@ -137,6 +157,54 @@ class WoWScrollbar(tk.Canvas):
             self.command('moveto', max(0, min(1, fraction)))
 
 
+def style_dropdowns(root, style):
+    """Keep native combobox behavior while using the app's arrow and scrollbar."""
+    if hasattr(root, '_wow_dropdowns'):
+        return
+    root._wow_dropdowns = {}
+    art = Image.new('RGBA', (18, 18))
+    draw = ImageDraw.Draw(art)
+    draw.rectangle((2, 1, 16, 17), fill='#514838', outline='#8c7960')
+    draw.line((3, 16, 3, 2, 15, 2), fill='#bdac88')
+    draw.line((15, 2, 15, 16, 3, 16), fill='#30291e')
+    draw.polygon(((5, 7), (13, 7), (9, 12)), fill=theme.GOLD)
+    root._wow_dropdown_arrow = ImageTk.PhotoImage(art, master=root)
+    style.element_create('WoW.downarrow', 'image', root._wow_dropdown_arrow, sticky='')
+    def replace(layout):
+        return [('WoW.downarrow' if name.endswith('.downarrow') else name,
+                 {key: replace(value) if key == 'children' else value for key, value in options.items()})
+                for name, options in layout]
+    style.layout('TCombobox', replace(style.layout('TCombobox')))
+
+    def setup(combobox, popup):
+        path = popup + '.f.sb'
+        if path in root._wow_dropdowns:
+            return
+        # The native popdown exists only in Tcl. A lightweight parent proxy lets
+        # our regular scrollbar live inside it without replacing list behavior.
+        parent = tk.Misc()
+        parent.tk, parent._w, parent.children = root.tk, popup + '.f', {}
+        parent.master = root
+        root.tk.call('destroy', path)
+        listbox = popup + '.f.l'
+        bar = WoWScrollbar(parent, name='sb', command=lambda *args: root.tk.call(listbox, 'yview', *args))
+        bar.grid(row=0, column=1, padx=(0, 1), pady=1, sticky='ns')
+        root.tk.call(listbox, 'configure', '-yscrollcommand', bar.register(bar.set))
+        root._wow_dropdowns[path] = bar
+        # Popdowns are destroyed with their combobox; discard their Python refs.
+        bar.bind('<Destroy>', lambda _: root._wow_dropdowns.pop(path, None), add='+')
+
+    callback = root.register(setup)
+    root.tk.call('rename', 'ttk::combobox::PopdownWindow', 'ttk::combobox::WoWOriginalPopdownWindow')
+    root.tk.eval('''
+        proc ttk::combobox::PopdownWindow {cb} {
+            set popup [WoWOriginalPopdownWindow $cb]
+            CALLBACK $cb $popup
+            return $popup
+        }
+    '''.replace('CALLBACK', callback))
+
+
 def bind_scroll_content(canvas, inner, window):
     """Keep short content at the top and recalculate bounds after resizing."""
     def update(event=None):
@@ -148,17 +216,17 @@ def bind_scroll_content(canvas, inner, window):
     canvas.bind('<Configure>', update)
 
 
-def caption_image(master, text, color, square=False):
+def caption_image(master, text, color, square=False, point_size=None):
     text = str(text).upper()
     scale = master.winfo_fpixels("1p")
     root = master.winfo_toplevel()
     cache = getattr(root, '_caption_cache', None)
     if cache is None:
         root._caption_cache = cache = {}
-    key = (text, color, square, scale)
+    point_size = point_size or (12 if text in ("▲", "▼") else 7)
+    key = (text, color, square, scale, point_size)
     if key in cache:
         return cache[key]
-    point_size = 12 if text in ("▲", "▼") else 7
     font = ImageFont.truetype(str(Path(__file__).parent / "fonts/Montserrat.ttf"), max(1, round(point_size*scale)))
     font.set_variation_by_name("Bold")
     spacing = 2*scale
@@ -226,6 +294,10 @@ class IconButton(Button):
         elif self.icon == 'user':
             draw.ellipse((23, 10, 41, 28), fill=color)
             draw.rounded_rectangle((13, 34, 51, 54), radius=10, fill=color)
+        elif self.icon == 'info':
+            draw.ellipse((8, 8, 56, 56), outline=color, width=4)
+            draw.ellipse((28, 18, 36, 26), fill=color)
+            draw.rounded_rectangle((29, 30, 35, 46), radius=2, fill=color)
         else:
             draw.line((17, 17, 47, 47), fill=color, width=6)
             draw.line((47, 17, 17, 47), fill=color, width=6)
@@ -260,5 +332,5 @@ class Section(ttk.LabelFrame):
         self.heading.configure(width=width, background=colors["background"])
         self.heading.delete("all")
         self.heading.create_rectangle(0, 0, width-1, 27, fill=colors["control"], outline=colors["border"])
-        self._title_image = caption_image(self.heading, self.title, theme.GOLD if colors != theme.UI_THEMES["Light Mode"] else colors["text"])
+        self._title_image = caption_image(self.heading, self.title, theme.GOLD)
         self.heading.create_image(14, 14, anchor="w", image=self._title_image)

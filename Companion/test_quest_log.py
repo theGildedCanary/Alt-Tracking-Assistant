@@ -95,7 +95,8 @@ class QuestLogTests(unittest.TestCase):
             self.assertEqual(model.publish([sv], {'a': [task], 'b': []}), 1)
             content = (addon / 'QuestSync.lua').read_text()
             self.assertIn('["42"] = true', content)
-            self.assertIn('["b"] = {}', content)
+            self.assertIn('["_tasks"] = {', content)
+            self.assertIn('["_deleted"] = {}', content)
             self.assertEqual((addon / 'AppSync.lua').read_text(), 'existing settings')
             model.publish([sv], {})
             self.assertNotIn('42', (addon / 'QuestSync.lua').read_text())
@@ -135,7 +136,15 @@ class QuestLogTests(unittest.TestCase):
         tab.load([self.record()])
         self.assertFalse(tab.panel_open)
         tab.open_character('a')
-        tab.delete_task(task)
+        popup = tab.delete_task(task)
+        def choose(widget):
+            for child in widget.winfo_children():
+                if getattr(child, 'caption', '') == 'Remove from character':
+                    child.invoke()
+                    return True
+                if choose(child): return True
+            return False
+        choose(popup)
         self.assertEqual(saved[-1]['a'], [])
         tab.remove_character()
         self.assertEqual(saved[-1], {})
@@ -228,14 +237,14 @@ class QuestLogTests(unittest.TestCase):
         entries = [w for w in descendants(dialog) if isinstance(w, ttk.Entry) and not isinstance(w, ttk.Combobox)]
         entries[0].insert(0, '42')
         entries[1].insert(0, 'World Tour')
-        resets = next(w for w in descendants(dialog) if isinstance(w, ttk.Combobox) and 'Auto' in w.cget('values'))
-        resets.set('Weekly')
+        self.assertFalse(any(isinstance(w, ttk.Combobox) and 'Auto' in w.cget('values') for w in descendants(dialog)))
+        next(w for w in descendants(dialog) if getattr(w, '_reset_day', None) == 2).invoke()
         next(w for w in descendants(dialog) if getattr(w, 'caption', '') == 'Save').invoke()
         task = tab.state['Player-12345'][0]
         self.assertEqual(task['resetMode'], 'Weekly')
         self.assertEqual(task['title'], 'World Tour')
         labels = [w.cget('text') for w in descendants(tab.details.inner) if isinstance(w, ttk.Label)]
-        self.assertIn('World Tour', labels)
+        self.assertIn('World Tour [W] [2]', labels)
         self.assertFalse(any('ID 42' in label or label == 'Quest 42' for label in labels))
         self.assertTrue(any(c.title == 'World Tour' and c.group == 'Weeklies' for c in tab.columns))
 
@@ -299,8 +308,9 @@ class QuestLogTests(unittest.TestCase):
         entry.delete(0, 'end')
         entry.insert(0, 'Tour')
         combos = [w for w in widgets if isinstance(w, ttk.Combobox)]
-        combos[0].set('Daily')
-        combos[1].set('High')
+        combos[0].set('High')
+        for toggle in widgets:
+            if getattr(toggle, '_reset_day', None) and not toggle.instate(['selected']): toggle.invoke()
         next(w for w in widgets if getattr(w, 'caption', '') == 'Save').invoke()
         for tasks in tab.state.values():
             self.assertEqual(tasks[0]['title'], 'Tour')
@@ -322,7 +332,7 @@ class QuestLogTests(unittest.TestCase):
                 yield child
                 yield from descendants(child)
         popup = tab.assignment_popup(tab.state['a'][0])
-        toggles = [w for w in descendants(popup) if isinstance(w, ttk.Checkbutton)]
+        toggles = [w for w in descendants(popup) if isinstance(w, ttk.Checkbutton) and hasattr(w, '_quest_class')]
         self.assertEqual(len(toggles), 2)
         self.assertTrue(toggles[0].instate(['selected']))
         self.assertFalse(toggles[1].instate(['selected']))
@@ -332,17 +342,17 @@ class QuestLogTests(unittest.TestCase):
         # This weekly quest is the first scrolling column.
         tab.select_quest_heading(SimpleNamespace(x=10, y=tab.list.band_height + 5))
         popup = next(w for w in tab.winfo_children() if isinstance(w, tk.Toplevel))
-        toggles = [w for w in descendants(popup) if isinstance(w, ttk.Checkbutton)]
+        toggles = [w for w in descendants(popup) if isinstance(w, ttk.Checkbutton) and hasattr(w, '_quest_class')]
         toggles[1].invoke()
         next(w for w in descendants(popup) if getattr(w, 'caption', '') == 'Save').invoke()
         self.assertEqual(saved[-1]['b'][0]['title'], 'World Tour')
         self.assertFalse(tab.panel_open)
         tab.open_character('b')
-        title = next(w for w in descendants(tab.details.inner) if isinstance(w, ttk.Label) and w.cget('text') == 'World Tour')
+        title = next(w for w in descendants(tab.details.inner) if isinstance(w, ttk.Label) and w.cget('text') == 'World Tour [W] [2]')
         title.event_generate('<Button-1>')
         popup = next(w for w in tab.winfo_children() if isinstance(w, tk.Toplevel))
         self.assertEqual(popup.cget('background'), theme.PANEL)
-        toggles = [w for w in descendants(popup) if isinstance(w, ttk.Checkbutton)]
+        toggles = [w for w in descendants(popup) if isinstance(w, ttk.Checkbutton) and hasattr(w, '_quest_class')]
         toggles[0].invoke()
         next(w for w in descendants(popup) if getattr(w, 'caption', '') == 'Save').invoke()
         self.assertEqual(saved[-1]['a'], [])
@@ -424,6 +434,31 @@ class QuestLogTests(unittest.TestCase):
         self.assertEqual(tab.state['a'][0]['status'], 'Pending')
         tab.toggle_todo_cell(SimpleNamespace(x=x, y=y + 2*tab.list.style.row_height))
         self.assertEqual(tab.state['c'], [])
+
+    def test_panel_completion_keeps_existing_widgets_and_scroll_position(self):
+        root = tk.Tk()
+        root.withdraw()
+        self.addCleanup(root.destroy)
+        saved = []
+        tab = QuestLogTab(root, {'a': [model.new_task('Gather materials')]},
+                          on_save=lambda state: saved.append(state) or 1)
+        tab.load([self.record()])
+        tab.open_character('a')
+        task, variable, label = tab._status_widgets[0]
+        children = tuple(tab.details.inner.winfo_children())
+        view = tab.details.canvas.yview()
+        with mock.patch.object(tab, 'load') as reload:
+            tab.change_status(task, 'Completed')
+            reload.assert_not_called()
+        self.assertTrue(variable.get())
+        self.assertEqual(label.cget('text'), 'Gather materials [2]')
+        self.assertEqual(saved[-1]['a'][0]['status'], 'Completed')
+        tab.render_details()
+        self.assertEqual(tuple(tab.details.inner.winfo_children()), children)
+        self.assertEqual(tab.details.canvas.yview(), view)
+        tab.change_status(task, 'Pending')
+        self.assertFalse(variable.get())
+        self.assertEqual(label.cget('text'), 'Gather materials [2]')
 
     def test_character_order_persists_and_names_have_level_and_class_background(self):
         root = tk.Tk()

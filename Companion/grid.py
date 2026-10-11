@@ -16,15 +16,19 @@ MIN_TITLE_HEIGHT = 90
 
 
 def _load_font():
-    """Register the bundled Montserrat for this process; fall back to Segoe UI if unavailable."""
+    """Register bundled fonts for this process without installing system fonts."""
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    path = os.path.join(base, "fonts", "Montserrat.ttf")
+    fonts = os.path.join(base, "fonts")
+    montserrat = False
     try:
-        if os.path.exists(path) and ctypes.windll.gdi32.AddFontResourceExW(path, 0x10, 0):
-            return "Montserrat"
+        for filename in os.listdir(fonts):
+            if filename.lower().endswith('.ttf'):
+                loaded = ctypes.windll.gdi32.AddFontResourceExW(os.path.join(fonts, filename), 0x10, 0)
+                if filename == 'Montserrat.ttf':
+                    montserrat = bool(loaded)
     except (AttributeError, OSError):
         pass
-    return "Segoe UI"
+    return "Montserrat" if montserrat else "Segoe UI"
 
 
 FAMILY = _load_font()
@@ -97,6 +101,7 @@ class RosterGrid(ttk.Frame):
         self.style = GridStyle()
         self._make_fonts()
         self._visible_data = None
+        self.selected_cell = None
         self._redraw_job = None
         self._content_size = (0, 0)
 
@@ -276,6 +281,10 @@ class RosterGrid(ttk.Frame):
         self.body.xview_moveto(0)
         self._schedule_redraw()
 
+    def select_cell(self, row=None, column=None):
+        self.selected_cell = (row, column) if row is not None else None
+        self._schedule_redraw()
+
     def _schedule_redraw(self, event=None):
         if self._redraw_job is None:
             self._redraw_job = self.after(30, self._draw_visible)
@@ -326,6 +335,15 @@ class RosterGrid(ttk.Frame):
             if column.separator_before:
                 canvas.create_line(x, first_row * row_height, x, last_row * row_height,
                                    fill=self.style.line, width=3)
+
+        if self.selected_cell:
+            row_index, col_index = self.selected_cell
+            if first_row <= row_index < last_row and 0 <= col_index < len(columns):
+                column = columns[col_index]
+                canvas = self.left if column.frozen else self.body
+                x, y = offsets[col_index], row_index * row_height
+                canvas.create_rectangle(x+1, y+1, x+column.width-1, y+row_height-1,
+                                        outline=theme.GOLD, width=2, tags='name_selected')
 
         if frozen_width:
             self.left.create_line(

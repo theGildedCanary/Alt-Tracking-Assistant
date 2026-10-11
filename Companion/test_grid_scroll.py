@@ -26,6 +26,25 @@ class GridScrollTests(unittest.TestCase):
         self.grid.set_data(headings, rows)
         self.root.update()
 
+    def test_selected_name_survives_redraw_and_clears_on_close(self):
+        self.populate(3)
+        self.grid.select_cell(1, 0)
+        if self.grid._redraw_job is not None:
+            self.grid.after_cancel(self.grid._redraw_job)
+        self.grid._draw_visible()
+        self.assertEqual(len(self.grid.left.find_withtag('name_selected')), 1)
+        self.grid.left.delete('name_hover')
+        self.populate(3)
+        if self.grid._redraw_job is not None:
+            self.grid.after_cancel(self.grid._redraw_job)
+        self.grid._draw_visible()
+        self.assertEqual(len(self.grid.left.find_withtag('name_selected')), 1)
+        self.grid.select_cell()
+        if self.grid._redraw_job is not None:
+            self.grid.after_cancel(self.grid._redraw_job)
+        self.grid._draw_visible()
+        self.assertFalse(self.grid.left.find_withtag('name_selected'))
+
     def assert_aligned(self):
         self.root.update()
         self.assertEqual(self.grid.body.canvasy(0), self.grid.left.canvasy(0))

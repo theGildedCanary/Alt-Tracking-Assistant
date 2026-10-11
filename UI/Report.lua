@@ -943,14 +943,45 @@ local function CreateReportFrame()
     rescanButton:SetText("Rescan")
     rescanButton:SetPoint("RIGHT", characterCard, "RIGHT", -12, 0)
     rescanButton:SetScript("OnClick", function()
-        local success, result = ATA:ScanCurrentCharacter()
-        if not success then
-            print("|cffff4444Alt Tracking Assistant:|r " .. result)
+        if InCombatLockdown() then
+            print("|cffff4444Alt Tracking Assistant:|r Rescan and Companion sync require leaving combat. Click Rescan again afterward.")
             return
         end
-        ATA.selectedCharacterKey = UnitGUID("player")
-        ATA:UpdateReport()
+        ATA:RefreshCompanionTasks()
+        local called, success, result = pcall(ATA.ScanCurrentCharacter, ATA)
+        if not called then result = success; success = false end
+        if success then
+            ATA.selectedCharacterKey = UnitGUID("player")
+            ATA:UpdateReport()
+            rescanButton:SetText("Scanned")
+            print("|cffd4af37Alt Tracking Assistant:|r Rescanned " .. (result.name or "current character") .. ".")
+        else
+            -- A progression check can fail before the full scan reaches these sections.
+            -- Refresh available quest/profession data without replacing stored progression.
+            local record = ATA.db and ATA.db.characters[UnitGUID("player")]
+            if record then
+                for _, scan in ipairs({ATA.ScanQuestLog, ATA.ScanProfessions}) do
+                    local ok, errorMessage = pcall(scan, ATA, record)
+                    if not ok then print("|cffff4444Alt Tracking Assistant:|r " .. tostring(errorMessage)) end
+                end
+                ATA:UpdateReport()
+            end
+            rescanButton:SetText("Scan failed")
+            print("|cffff4444Alt Tracking Assistant:|r " .. tostring(result or "The character scan could not complete."))
+        end
+        -- WoW loads addon Lua files only at login/UI reload. Scanning cannot
+        -- reread a QuestSync.lua or NotesSync.lua changed by the Companion.
+        ReloadUI()
     end)
+
+    rescanButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Rescan", 1, 0.82, 0)
+        GameTooltip:AddLine("Scan this character, then reload the UI to pull Companion changes.", 1, 1, 1, true)
+        GameTooltip:AddLine("Shows a brief loading screen and saves updated data for the Companion.", 0.7, 0.7, 0.7, true)
+        GameTooltip:Show()
+    end)
+    rescanButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     local contentRow = CreateFrame("Frame", nil, frame)
     contentRow:SetWidth(938)

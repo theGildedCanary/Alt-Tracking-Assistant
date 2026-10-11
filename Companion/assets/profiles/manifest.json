@@ -1,0 +1,58 @@
+{
+  "source": "Extracted from installed WoW CASC archives",
+  "build": "12.1.0.69933",
+  "images": {
+    "weather-sandstorm.png": {
+      "fileDataID": 611376,
+      "path": "interface/petbattles/weather-sandstorm.blp"
+    },
+    "ui-horizontalbreak.png": {
+      "fileDataID": 136783,
+      "path": "interface/questframe/ui-horizontalbreak.blp"
+    },
+    "weather-staticfield.png": {
+      "fileDataID": 603599,
+      "path": "interface/petbattles/weather-staticfield.blp"
+    },
+    "weather-blizzard.png": {
+      "fileDataID": 611370,
+      "path": "interface/petbattles/weather-blizzard.blp"
+    },
+    "weather-burntearth.png": {
+      "fileDataID": 611371,
+      "path": "interface/petbattles/weather-burntearth.blp"
+    },
+    "weather-darkness.png": {
+      "fileDataID": 611372,
+      "path": "interface/petbattles/weather-darkness.blp"
+    },
+    "weather-moonlight.png": {
+      "fileDataID": 611373,
+      "path": "interface/petbattles/weather-moonlight.blp"
+    },
+    "weather-mud.png": {
+      "fileDataID": 611374,
+      "path": "interface/petbattles/weather-mud.blp"
+    },
+    "weather-rain.png": {
+      "fileDataID": 611375,
+      "path": "interface/petbattles/weather-rain.blp"
+    },
+    "weather-sunlight.png": {
+      "fileDataID": 611377,
+      "path": "interface/petbattles/weather-sunlight.blp"
+    },
+    "weather-windy.png": {
+      "fileDataID": 611378,
+      "path": "interface/petbattles/weather-windy.blp"
+    },
+    "weather-arcanestorm.png": {
+      "fileDataID": 615343,
+      "path": "interface/petbattles/weather-arcanestorm.blp"
+    },
+    "weather-toxicfumes.png": {
+      "fileDataID": 3028322,
+      "path": "interface/petbattles/weather-toxicfumes.blp"
+    }
+  }
+}

@@ -78,30 +78,13 @@ class SettingsTab(ttk.Frame):
         self._nav_images = []
         for name in PAGES:
             import theme
-            image = caption_image(nav, name, theme.GOLD if ui_theme != "Light Mode" else "#000000")
+            image = caption_image(nav, name, theme.GOLD)
             self._nav_images.append(image)
             ttk.Radiobutton(
                 nav, text=name, image=image, compound="none", value=name, variable=self.page_var, style="Toolbutton", width=16,
                 command=self._show_page,
             ).pack(fill="x", pady=2)
 
-        ttk.Separator(nav).pack(fill="x", pady=(16, 8))
-        ttk.Label(nav, text="Appearance").pack(anchor="w")
-
-        self.ui_theme_var = tk.StringVar(value=ui_theme)
-        theme_picker = ttk.Combobox(
-            nav,
-            textvariable=self.ui_theme_var,
-            values=("WoW Mode", "Light Mode", "Dark Mode"),
-            state="readonly",
-            width=14,
-        )
-        theme_picker.pack(fill="x", pady=(4, 0))
-        theme_picker.bind(
-            "<<ComboboxSelected>>",
-            lambda _: on_theme_change(self.ui_theme_var.get()),
-        )
-        
         self._show_page()
 
     def _show_page(self):

@@ -19,6 +19,7 @@ end
 -- To-dos are stored per character as { id, text, done, created }.
 function ATA:GetTodos(characterKey)
     local record = GetRecord(characterKey)
+    if record then self:SyncTodoAssignments(record) end
     local todos = record and record.todos or {}
     for _, todo in ipairs(todos) do
         if todo.done == nil then
@@ -31,14 +32,14 @@ end
 
 function ATA:HasPendingTodo(characterKey)
     for _, todo in ipairs(self:GetTodos(characterKey)) do
-        if not todo.done then
+        if not self:TodoState(GetRecord(characterKey), todo) then
             return true
         end
     end
     return false
 end
 
-function ATA:AddTodo(characterKey, text)
+function ATA:AddTodo(characterKey, text, options)
     local record = GetRecord(characterKey)
     if not record then
         return false, "Scan this character in game before adding to-dos."
@@ -49,21 +50,43 @@ function ATA:AddTodo(characterKey, text)
         return false, "Enter a to-do first."
     end
 
-    local now = time()
+    options = options or {}
+    if options.idType ~= "Manual" and options.id and options.id ~= "" then
+        local raw = strtrim(options.id)
+        local prefix, numeric = raw:match("^(%a+):%s*(%d+)$")
+        if prefix then
+            prefix = prefix:lower()
+            if prefix ~= "quest" and prefix ~= "achievement" and prefix ~= "item" then return false, "Use a quest ID, achievement:ID or item:ID." end
+            options.idType = prefix == "achievement" and "Achievement" or prefix == "item" and "Item" or "Quest"
+        end
+        local id = tonumber(numeric or raw)
+        if not id or id < 1 or id > 2147483647 or id ~= math.floor(id) then return false, "Enter a positive numeric ID." end
+        options[options.idType == "Achievement" and "achievementID" or options.idType == "Item" and "itemID" or "questID"] = id
+    end
+    if options.reset == "Custom" and #(options.resetDays or {}) == 0 then return false, "Select at least one reset day." end
+    local now = GetServerTime()
     record.todos = record.todos or {}
     record.todos[#record.todos + 1] = {
         id = now .. "-" .. math.random(100000, 999999),
         text = text:sub(1, MAX_TODO_LENGTH),
         done = false,
-        created = now,
+        created = now, changedAt=now, title=text:sub(1, MAX_TODO_LENGTH), status="Pending",
+        questID=options.questID, achievementID=options.achievementID, itemID=options.itemID,
+        reset=options.reset or "None", resetMode=options.questID and (options.reset or "None") or nil,
+        priority=options.priority or "Normal", resetDays=options.resetDays,
     }
+    if characterKey == UnitGUID("player") then self:ScanQuestLog(record) end
     return true
 end
 
 function ATA:ToggleTodo(characterKey, todoId)
     for _, todo in ipairs(self:GetTodos(characterKey)) do
         if todo.id == todoId then
+            if todo.questID or todo.achievementID or todo.itemID then return false end
             todo.done = not todo.done
+            todo.status = todo.done and "Completed" or "Pending"
+            todo.changedAt = GetServerTime()
+            todo.resetAt = self:NextTodoReset(todo.reset, todo.changedAt, todo.resetDays)
             return true
         end
     end
@@ -77,6 +100,8 @@ function ATA:DeleteTodo(characterKey, todoId)
     end
     for index, todo in ipairs(record.todos) do
         if todo.id == todoId then
+            record.todoDeleted = record.todoDeleted or {}
+            record.todoDeleted[todo.id] = GetServerTime()
             table.remove(record.todos, index)
             return true
         end
@@ -86,6 +111,7 @@ end
 
 function ATA:GetNotes(characterKey)
     local record = GetRecord(characterKey)
+    if record then self:SyncHistoryNotes(record) end
     return record and record.notes or {}
 end
 
@@ -96,6 +122,8 @@ function ATA:DeleteNote(characterKey, noteId)
     end
     for index, note in ipairs(record.notes) do
         if note.id == noteId then
+            record.notesDeleted = record.notesDeleted or {}
+            record.notesDeleted[note.id] = GetServerTime()
             table.remove(record.notes, index)
             return true
         end
@@ -118,12 +146,12 @@ function ATA:AddNote(characterKey, text)
         return false, "Notes are limited to " .. MAX_NOTE_LENGTH .. " characters."
     end
 
-    local now = time()
+    local now = GetServerTime()
     record.notes = record.notes or {}
     record.notes[#record.notes + 1] = {
         id = now .. "-" .. math.random(100000, 999999),
         text = text,
-        created = now,
+        created = now, changedAt = now,
     }
     return true
 end
@@ -229,7 +257,7 @@ function ATA.CreateNotesPanel(parent, helpers)
     todoInput:SetPoint("BOTTOMRIGHT", todoInputBox, "BOTTOMRIGHT", -8, 0)
     todoInput:SetAutoFocus(false)
     todoInput:SetFontObject(ChatFontNormal)
-    todoInput:SetTextColor(unpack(colors.text))
+    todoInput:SetTextColor(unpack(colors.gold))
     todoInput:SetMaxLetters(MAX_TODO_LENGTH)
     todoInput:SetScript("OnEscapePressed", todoInput.ClearFocus)
     todoInputBox:EnableMouse(true)
@@ -237,9 +265,64 @@ function ATA.CreateNotesPanel(parent, helpers)
         todoInput:SetFocus()
     end)
 
+    local optionsRow = CreateFrame("Frame", nil, content)
+    optionsRow:SetHeight(54)
+    local idLabel = optionsRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    idLabel:SetPoint("TOPLEFT", 0, -5); idLabel:SetText("ID:"); idLabel:SetTextColor(unpack(colors.gold))
+    local idBox = CreateFrame("EditBox", nil, optionsRow, "InputBoxTemplate")
+    idBox:SetSize(180, 22); idBox:SetPoint("TOPLEFT", 35, 0); idBox:SetAutoFocus(false)
+    idBox:SetMaxLetters(30); idBox:SetTextColor(unpack(colors.gold))
+    local priorityLabel = optionsRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    priorityLabel:SetPoint("TOPLEFT", 250, -5); priorityLabel:SetText("Priority:"); priorityLabel:SetTextColor(unpack(colors.gold))
+    local priorityChoice = CreateFrame("Frame", nil, optionsRow, "UIDropDownMenuTemplate")
+    priorityChoice:SetPoint("TOPLEFT", 300, -1)
+    priorityChoice.value = "Normal"
+    UIDropDownMenu_SetWidth(priorityChoice, 140)
+    UIDropDownMenu_SetText(priorityChoice, "Medium")
+    UIDropDownMenu_Initialize(priorityChoice, function()
+        for _, entry in ipairs({{"High", "High"}, {"Medium", "Normal"}, {"Low", "Low"}}) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.colorCode = string.format("|cff%02x%02x%02x", math.floor(colors.gold[1]*255), math.floor(colors.gold[2]*255), math.floor(colors.gold[3]*255))
+            info.text = entry[1]; info.checked = priorityChoice.value == entry[2]
+            local label, value = entry[1], entry[2]
+            info.func = function() priorityChoice.value = value; UIDropDownMenu_SetText(priorityChoice, label) end
+            UIDropDownMenu_AddButton(info)
+        end
+    end)
+    if priorityChoice.Text then priorityChoice.Text:SetFontObject(GameFontHighlight); priorityChoice.Text:SetTextColor(unpack(colors.gold)) end
+    local days = {}
+    local dayLabel = optionsRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    dayLabel:SetPoint("TOPLEFT", 0, -31); dayLabel:SetText("Reset:"); dayLabel:SetTextColor(unpack(colors.gold))
+    for index, name in ipairs({"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}) do
+        local check = CreateFrame("CheckButton", nil, optionsRow, "UICheckButtonTemplate")
+        check:SetSize(24,24); check:SetPoint("TOPLEFT", 65 + (index-1)*72, -27)
+        check.Text:SetText(name); check.Text:SetTextColor(unpack(colors.gold)); days[index] = check
+    end
+    local inputHint = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    inputHint:SetTextColor(1, 1, 1, 0.7)
+    inputHint:SetText("Optional ID: quest number, achievement:ID or item:ID. Reset days: 11 a.m. EST.")
+    local automaticTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    automaticTitle:SetText("AUTOMATIC"); automaticTitle:SetTextColor(unpack(colors.gold))
+    local manualTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    manualTitle:SetText("MANUAL"); manualTitle:SetTextColor(unpack(colors.gold))
+    local manualDivider = MakeDivider()
+
     local todoEmpty = content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     todoEmpty:SetText("No to-dos yet.")
 
+    panel:SetScript("OnUpdate", function(self, elapsed)
+        self.todoElapsed = (self.todoElapsed or 0) + elapsed
+        if self.todoElapsed < 1 then return end
+        self.todoElapsed = 0
+        local record = GetRecord(self.characterKey)
+        if not record then return end
+        local signature = tostring((record.questLog or {}).scannedAt)
+        for _, todo in ipairs(ATA:GetTodos(self.characterKey)) do
+            local done, reset, marker = ATA:TodoState(record, todo)
+            signature = signature .. todo.id .. tostring(done) .. reset .. tostring(marker)
+        end
+        if signature ~= self.todoSignature then self.todoSignature = signature; self:Render() end
+    end)
     local todoRows = {}
 
     local function GetTodoRow(index)
@@ -269,14 +352,20 @@ function ATA.CreateNotesPanel(parent, helpers)
         end)
         row.checkbox:SetScript("OnClick", function(self)
             ATA:ToggleTodo(panel.characterKey, self.todoId)
-            panel:Render()
+            local record = GetRecord(panel.characterKey)
+            for _, todo in ipairs(record.todos or {}) do
+                if todo.id == self.todoId then
+                    self.check:SetShown(todo.done)
+                    row.text:SetTextColor(unpack(todo.done and colors.mutedText or colors.gold))
+                    break
+                end
+            end
         end)
 
         row.deleteButton = helpers.CreateThemedButton(row, "X", 20, 20)
         row.deleteButton:SetPoint("TOPRIGHT", row, "TOPRIGHT", -2, -2)
         row.deleteButton:SetScript("OnClick", function(self)
-            ATA:DeleteTodo(panel.characterKey, self.todoId)
-            panel:Render()
+            StaticPopup_Show("ATA_REMOVE_TODO", nil, nil, {characterKey=panel.characterKey, todoId=self.todoId, panel=panel})
         end)
 
         row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -396,7 +485,15 @@ function ATA.CreateNotesPanel(parent, helpers)
         Place(todoInputBox, y, 0, 66)
         y = y + 32
 
-        local todos = ATA:GetTodos(self.characterKey)
+        Place(optionsRow, y); y = y + 58
+        inputHint:ClearAllPoints(); inputHint:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y); y = y + 24
+        local todos = {}
+        local source = ATA:GetTodos(self.characterKey)
+        for _, todo in ipairs(source) do if todo.questID or todo.achievementID or todo.itemID then table.insert(todos, todo) end end
+        local automaticCount = #todos
+        for _, todo in ipairs(source) do if not (todo.questID or todo.achievementID or todo.itemID) then table.insert(todos, todo) end end
+        automaticTitle:ClearAllPoints(); automaticTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y); y = y + 24
+        manualTitle:Hide(); manualDivider:Hide()
         todoEmpty:ClearAllPoints()
         todoEmpty:SetPoint("TOPLEFT", content, "TOPLEFT", 2, -y)
         todoEmpty:SetShown(#todos == 0)
@@ -404,17 +501,32 @@ function ATA.CreateNotesPanel(parent, helpers)
             y = y + 22
         end
         for index, todo in ipairs(todos) do
+            if index == automaticCount + 1 then
+                Place(manualDivider, y); manualDivider:Show(); y = y + 12
+                manualTitle:ClearAllPoints(); manualTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y); manualTitle:Show(); y = y + 24
+            end
+            local done, reset, marker = ATA:TodoState(GetRecord(self.characterKey), todo)
             local row = GetTodoRow(index)
             row.checkbox.todoId = todo.id
-            row.checkbox.check:SetShown(todo.done)
+            row.checkbox.check:SetShown(done)
+            row.checkbox:SetEnabled(not (todo.questID or todo.achievementID or todo.itemID))
             row.deleteButton.todoId = todo.id
-            row.text:SetText(todo.text or "")
-            row.text:SetTextColor(unpack(todo.done and colors.mutedText or colors.text))
+            local log = GetRecord(self.characterKey).questLog or {}
+            local data = todo.questID and (log.quests or {})[tostring(todo.questID)] or todo.achievementID and (log.achievements or {})[tostring(todo.achievementID)] or todo.itemID and (log.items or {})[tostring(todo.itemID)] or {}
+            local name = todo.title ~= "" and todo.title or todo.text ~= "" and todo.text or data.title or "Awaiting scan"
+            local resetMark = reset == "Daily" and " [D]" or reset == "Weekly" and " [W]" or reset == "Custom" and " [" .. table.concat(todo.resetDays or {}, ",") .. "]" or ""
+            local priority = todo.priority == "High" and "1" or todo.priority == "Low" and "3" or "2"
+            row.text:SetText(name .. resetMark .. " [" .. priority .. "]")
+            row.text:SetTextColor(unpack(done and colors.mutedText or colors.gold))
             local height = math.max(TODO_MIN_HEIGHT, row.text:GetStringHeight() + 8)
             row:SetHeight(height)
             Place(row, y)
             row:Show()
             y = y + height + 2
+        end
+        if automaticCount == #todos then
+            Place(manualDivider, y); manualDivider:Show(); y = y + 12
+            manualTitle:ClearAllPoints(); manualTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y); manualTitle:Show(); y = y + 24
         end
         for index = #todos + 1, #todoRows do
             todoRows[index]:Hide()
@@ -508,6 +620,8 @@ function ATA.CreateNotesPanel(parent, helpers)
     end
 
     function panel:Refresh(characterKey, characterName, hasRecord)
+        local record = GetRecord(characterKey)
+        if record and characterKey == UnitGUID("player") then ATA:ScanQuestLog(record) end
         if characterKey ~= self.characterKey then
             self.characterKey = characterKey
             self.collapsed = {}
@@ -531,12 +645,17 @@ function ATA.CreateNotesPanel(parent, helpers)
     end
 
     local function AddTodoFromInput()
-        local success, message = ATA:AddTodo(panel.characterKey, todoInput:GetText())
+        local success, message = ATA:AddTodo(panel.characterKey, todoInput:GetText(), {
+            id=idBox:GetText(), idType="Quest", priority=priorityChoice.value,
+            reset=(function() local count=0 for _,check in ipairs(days) do if check:GetChecked() then count=count+1 end end return count==7 and "Daily" or count==1 and "Weekly" or count>0 and "Custom" or "None" end)(),
+            resetDays=(function() local selected={} for day, check in ipairs(days) do if check:GetChecked() then table.insert(selected,day) end end return selected end)(),
+        })
         if not success then
             SetStatus(message, statusColor)
             return
         end
         todoInput:SetText("")
+        idBox:SetText("")
         panel:Render()
     end
     todoAddButton:SetScript("OnClick", AddTodoFromInput)
@@ -572,3 +691,55 @@ function ATA.CreateNotesPanel(parent, helpers)
 
     return panel
 end
+
+local function TodoKey(todo)
+    return todo.questID and "quest:" .. todo.questID or todo.achievementID and "achievement:" .. todo.achievementID
+        or todo.itemID and "item:" .. todo.itemID or "manual:" .. (todo.sharedID or todo.id)
+end
+function ATA:DeleteTodoEverywhere(characterKey, todoId)
+    local key
+    for _, todo in ipairs(self:GetTodos(characterKey)) do if todo.id == todoId then key=TodoKey(todo) end end
+    if not key then return end
+    for guid in pairs(self.db.characters) do
+        local ids={}
+        for _, todo in ipairs(self:GetTodos(guid)) do if TodoKey(todo)==key then table.insert(ids,todo.id) end end
+        for _, id in ipairs(ids) do self:DeleteTodo(guid,id) end
+    end
+end
+StaticPopupDialogs["ATA_REMOVE_TODO"] = {
+    text="Remove this assignment, or delete this to do from every character?",
+    button1="Remove from character", button2="Cancel", button3="Delete to do",
+    OnAccept=function(self,data) ATA:DeleteTodo(data.characterKey,data.todoId); data.panel:Render() end,
+    OnAlt=function(self,data) ATA:DeleteTodoEverywhere(data.characterKey,data.todoId); data.panel:Render() end,
+    timeout=0, whileDead=true, hideOnEscape=true, preferredIndex=3,
+}
+
+function ATA:SyncHistoryNotes(record)
+    local incoming = (_G.AltTrackingAssistantNotesSync or {})[record.guid]
+    if type(incoming) ~= "table" then return end
+    record.notes = record.notes or {}
+    record.notesDeleted = record.notesDeleted or {}
+    for id, stamp in pairs(incoming.deleted or {}) do
+        record.notesDeleted[id] = math.max(record.notesDeleted[id] or 0, stamp)
+    end
+    for _, note in ipairs(incoming.notes or {}) do
+        local changed = note.changedAt or note.created or 0
+        if (record.notesDeleted[note.id] or 0) < changed then
+            local existing
+            for _, value in ipairs(record.notes) do if value.id == note.id then existing=value; break end end
+            if not existing then existing={}; table.insert(record.notes,existing) end
+            if changed > (existing.changedAt or existing.created or -1) then
+                for key, value in pairs(note) do existing[key]=value end
+            end
+        end
+    end
+    for index=#record.notes,1,-1 do
+        local note=record.notes[index]
+        if (record.notesDeleted[note.id] or 0) >= (note.changedAt or note.created or 0) then table.remove(record.notes,index) end
+    end
+end
+local historySyncFrame=CreateFrame("Frame")
+historySyncFrame:RegisterEvent("PLAYER_LOGIN")
+historySyncFrame:SetScript("OnEvent", function()
+    for _, record in pairs(ATA.db and ATA.db.characters or {}) do ATA:SyncHistoryNotes(record) end
+end)

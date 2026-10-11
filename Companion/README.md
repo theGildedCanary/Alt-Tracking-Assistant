@@ -17,7 +17,7 @@ Headless: `python app.py --export "<WoW folder>" "<output.xlsx | output.csv>"`
 
 ## Professions tab
 
-**Settings → UI theme → WoW Mode** uses the addon's muted gold and warm brown palette, original selected-tab fade, textured profession headings, and red action controls. It is the default for new installations; Dark Mode also uses the warm palette. Light Mode remains available. Old default roster colors migrate to the warm palette while custom colors are preserved.
+**WoW Mode** uses the addon's muted gold and warm brown palette, original selected-tab fade, textured profession headings, and red action controls. It is the only app theme. Old default roster colors migrate to the warm palette while custom colors are preserved.
 
 The Companion Professions dashboard has a GUID-based character picker, saved per-character profession selections, removable sidebar entries, and collapsible expansion progress bars. Select a character, add them, and check the professions you want to track. Tracked professions are highlighted on the roster when Profession Highlight is enabled.
 
@@ -44,18 +44,26 @@ The **Roster** tab shows every character in a spreadsheet-style grid (realm, fac
 
 ## Quest Log (v2.2.0)
 
-The Quest Log tab sits between Professions and Settings. Choose a character and click **Add character**; only selected characters appear. Weeklies and Dailies show vertical quest-name columns like the Roster, with a per-character status indicator. The To do fraction shows completed / assigned manual tasks. Click a character name to open the detail panel; **Close** hides it and restores the full-width list. Adding a character or refreshing data does not open the panel. All Quest Log surfaces, dropdowns, and notes fields use the existing brown palette.
+The Quest Log sits between Professions and Settings. Add only the characters you want to track. Reorder them with Order Characters; remove them with the red X before the table. Names show Level - Name with black text on class-colored backgrounds.
 
-Use **Add quest ID** to assign a numeric quest ID to the selected character. Enter a nickname for the vertical heading and detail title, and choose **Auto**, **None**, **Daily**, or **Weekly** under Reset. Auto uses the frequency detected by WoW; manual choices override it and immediately place the quest in the appropriate group. With Auto, unknown frequency stays under Other quests until WoW supplies it. Player IDs are hidden from the character picker; quest IDs appear only in the editor. The indicators are ○ Not picked up, ◇ Picked up but not started, ◐ In progress, and ✓ Completed. Ready to turn in stays In progress until the quest is turned in. A ? indicates that a scan or objective data is needed; — means the quest is not assigned to that character. Old snapshots need a fresh scan to distinguish acceptance from objective progress.
+Add quests and tasks from the dashboard. Give quests a nickname for the vertical headings and choose any tracking characters. Click a heading or task name to edit its settings and assignments. Weeklies use purple columns, Dailies blue, and To Dos green. Manual tasks have gold completion checkboxes directly in the grid, with separate progress per character.
 
-After adding IDs, `/reload` in WoW to load the assignments, then log into each selected character. `/reload` or logout saves the character's snapshot; **Refresh** in the Companion imports it. After a recurring quest's reset, the old snapshot says Awaiting new scan until refreshed data arrives. No live connection to WoW is required.
+Reset weekday selections replace the old reset dropdown. Choose all seven days for Daily, one day for Weekly, or several days for that schedule. Leave all unchecked for no reset. Each selected day resets at **11 a.m. fixed EST (UTC−5)**. Existing weekly schedules default to Tuesday. [D]/[W] identify Daily/Weekly; [1], [2], and [3] identify High, Medium, and Low priority. Remove from character removes one assignment; Delete to do removes all assignments for that quest/task.
 
-Manual tasks support titles, multiline notes / steps, priority, and a completion checkbox. Check it to mark Completed; uncheck it to return to Pending. Select None, Daily, or Weekly. Daily resets occur at **11 a.m. EST**; weekly resets occur **Tuesday at 11 a.m. EST**. This schedule uses fixed EST (UTC−5) and also controls when recurring quest snapshots need a new scan. Manual statuses reset to Pending when the reset passes, including while the app was closed, without needing a server-reset snapshot. Edit or delete individual tasks, or remove a character and their assignments.
+Quest indicators are ○ not picked up, an empty checkbox for picked up or pending, a checked checkbox for completed, ? awaiting scan, and — not assigned. Completed quest snapshots need a new character scan after a reset. Quest Log refreshes with the rest of the app after WoW saves on logout or reload. Popups remember their placement.
 
-Assignments and manual tasks are stored in the Companion's local database. Quest IDs use a separate generated QuestSync.lua file, so they do not replace Companion Settings edits. Select the correct WoW folder on Export if the app cannot send assignments to the addon.
+## Roster character panel
 
-To reuse an existing quest or to do, click its name in the character detail panel. Quest headings in the full character list also open the assignment popup. The popup lists only added characters, with independent selection indicators. Choose any number of characters and click **Save**; **Cancel** leaves assignments unchanged. New assignments copy the nickname, notes, priority, and reset settings. Manual task progress remains separate per character and starts Pending on a new character. Existing assignments keep their own progress. Unchecking a character removes that task from their list; unchecking everyone removes all assignments for it.
+Click a character name on the Roster to open Info, To Do, and Notes. The selected roster name remains highlighted until the panel closes.
 
-Shared to dos also appear as vertical columns in the full character list, with independent pending, in progress, and completed indicators. Click a to do heading or use **Characters** in its detail card to change assignments. Group headings and vertical names use white text: Weeklies have dark purple backgrounds, Dailies blue, and To dos green. Other quests use the brown panel background. The character list shows names without realms.
+**Info** provides an editable character profile with supported HTML formatting. Edit Info shows the HTML source; Save Info renders it. The info icon lists supported tags/CSS. This is a native renderer with a supported subset, not a full browser. Choose a WoW weather image header or insert colors through the hex/color picker. Montserrat is the default; Skurri, Morpheus, and Friz Quadrata TT are bundled.
 
-Quest Log follows the app's SavedVariables refresh after `/reload` or logout and supports the same manual Refresh action. It has no separate periodic refresh timer. Reset transitions are applied when data refreshes or tasks are edited. Assignment and task editor popups remember their positions and sizes across reopening and app restarts, with the same disconnected-monitor fallback as the main window.
+**To Do** groups quests, achievements, and item tracking under Auto Tracking, followed by manual tasks. Use the completion checkbox for manual items and the square pen, character, and X buttons to manage assignments.
+
+**Notes** reads and edits the addon's Notes / History. Enter a note and click Save, or click the pen before an existing note to edit it. Year and day headers collapse independently and include entry counts; editing preserves the original date. The X asks before deleting.
+
+## Addon synchronization
+
+The Companion writes separate AppSync.lua, QuestSync.lua, and NotesSync.lua files into the selected addon installation. WoW loads them on login or UI reload. After saving app edits, click Rescan in the addon: it scans and then reloads the UI to apply changes, causing a brief loading screen. It is blocked in combat. The Companion receives addon snapshots when WoW saves on logout or `/reload`; scans alone do not write SavedVariables to disk.
+
+Automatic addon IDs accept a quest number, achievement:ID, or item:ID. A blank ID creates a manual task. Offline characters use their saved snapshots; only the logged-in character can be scanned live.

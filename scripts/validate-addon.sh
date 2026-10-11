@@ -15,6 +15,8 @@ required_paths=(
   "UI"
   "Media"
   "scripts/AppSync.default.lua"
+  "scripts/QuestSync.default.lua"
+  "scripts/NotesSync.default.lua"
 )
 
 for path in "${required_paths[@]}"; do
@@ -61,6 +63,10 @@ while IFS= read -r line || [ -n "$line" ]; do
   fi
   if [ "$file_path" = "QuestSync.lua" ] && [ ! -f "$file_path" ]; then
     file_path="scripts/QuestSync.default.lua"
+  fi
+
+  if [ "$file_path" = "NotesSync.lua" ] && [ ! -f "$file_path" ]; then
+    file_path="scripts/NotesSync.default.lua"
   fi
 
   if [ ! -f "$file_path" ]; then

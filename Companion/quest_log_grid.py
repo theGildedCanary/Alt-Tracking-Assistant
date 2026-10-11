@@ -68,7 +68,7 @@ def build_grid(state, records, selected=None, now=None):
     for guid in guids:
         record = records.get(guid, {})
         tasks = state[guid]
-        bg = theme.UI_THEMES['WoW Mode']['selected'] if guid == selected else ''
+        bg = ''
         manual = [t for t in tasks if not t.get('questID')]
         class_bg = theme.CLASS_COLORS.get(record.get('classFile'), bg)
         if class_bg.upper() == '#FFFFFF':

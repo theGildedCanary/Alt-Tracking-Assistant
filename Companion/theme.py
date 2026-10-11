@@ -64,28 +64,12 @@ EXPANSION_ACCENTS = {
     "midnight": _hex(236 / 255, 143 / 255, 248 / 255),
 }
 
-# Settings UI Dark and Light modes.
-UI_THEMES = {
-    "Light Mode": {
-        "background": "#f2f2f2",
-        "text": "#202020",
-        "control": "#ffffff",
-        "hover": "#e2e8f0",
-        "selected": "#cce4ff",
-        "border": "#b8b8b8",
-        "disabled": "#777777",
-    },
-    "Dark Mode": {
-        "background": "#171510",
-        "text": TEXT,
-        "control": PANEL,
-        "hover": "#353025",
-        "selected": "#55452b",
-        "border": "#66563c",
-        "disabled": "#8c8578",
-    },
-}
-UI_THEMES["WoW Mode"] = dict(UI_THEMES["Dark Mode"])
+# The Companion always uses the addon's WoW palette.
+UI_THEMES = {'WoW Mode': {
+    'background': '#171510', 'text': TEXT, 'control': PANEL,
+    'hover': '#353025', 'selected': '#55452b',
+    'border': '#66563c', 'disabled': '#8c8578',
+}}
 
 
 def _art_styles(root, style, enabled):
@@ -109,8 +93,11 @@ def _art_styles(root, style, enabled):
             ImageDraw.Draw(mask).rounded_rectangle((1, 1, 126, 30), radius=4, fill=255)
             image.putalpha(mask)
             images.append(ImageTk.PhotoImage(image, master=root))
+        hover = Image.blend(Image.open(assets / 'TabInactive.png').convert('RGBA'),
+                            Image.open(assets / 'TabActive.png').convert('RGBA'), .45)
+        images.append(ImageTk.PhotoImage(hover, master=root))
         root._ata_theme_images = images
-        style.element_create("ATA.tab", "image", images[0], ("selected", images[1]), border=6, sticky="nsew")
+        style.element_create("ATA.tab", "image", images[0], ("selected", images[1]), ("active", "!selected", images[6]), border=6, sticky="nsew")
         style.element_create("ATA.button", "image", images[2], ("disabled", images[5]),
                              ("pressed", images[4]), ("active", images[3]), border=6, width=12, height=12, sticky="nsew")
     if not hasattr(root, "_ata_original_layouts"):
@@ -129,7 +116,7 @@ def _art_styles(root, style, enabled):
 def apply_ui_theme(root, mode):
     from tkinter import ttk
 
-    colors = UI_THEMES.get(mode, UI_THEMES["Light Mode"])
+    colors = UI_THEMES["WoW Mode"]
     style = ttk.Style(root)
 
     # "clam" lets us control colors consistently on Windows.
@@ -137,11 +124,21 @@ def apply_ui_theme(root, mode):
         style.theme_use("clam")
 
     root.configure(background=colors["background"])
+    # ttk's popup list is a classic Tk Listbox, outside the ttk style tree.
+    for option, value in {
+        'background': colors['control'], 'foreground': colors['text'],
+        'selectBackground': colors['selected'], 'selectForeground': GOLD,
+        'highlightBackground': GOLD, 'highlightColor': GOLD,
+    }.items():
+        root.option_add('*TCombobox*Listbox.' + option, value)
 
     style.configure(
         ".",
         background=colors["background"],
         foreground=colors["text"],
+        bordercolor=GOLD,
+        lightcolor=GOLD,
+        darkcolor=GOLD,
     )
 
     style.configure(
@@ -199,6 +196,9 @@ def apply_ui_theme(root, mode):
         )
         style.map(
             widget_style,
+            bordercolor=[("!disabled", GOLD), ("disabled", GOLD)],
+            lightcolor=[("!disabled", GOLD), ("disabled", GOLD)],
+            darkcolor=[("!disabled", GOLD), ("disabled", GOLD)],
             fieldbackground=[("readonly", colors["control"])],
             foreground=[
                 ("disabled", colors["disabled"]),
@@ -215,11 +215,13 @@ def apply_ui_theme(root, mode):
     style.configure("TSeparator", background=colors["border"])
     style.configure("TNotebook", background=colors["background"], borderwidth=0)
     style.configure("TLabelframe", bordercolor=colors["border"], relief="flat")
-    style.configure("TLabelframe.Label", foreground=GOLD if mode != "Light Mode" else colors["text"])
-    _art_styles(root, style, mode != "Light Mode")
+    style.configure("TLabelframe.Label", foreground=GOLD)
+    _art_styles(root, style, True)
+    from widgets import style_dropdowns
+    style_dropdowns(root, style)
     style.configure("Order.TButton", padding=6, width=0)
     root._ata_colors = colors
-    root._ata_caption_color = GOLD if mode != "Light Mode" else "#000000"
+    root._ata_caption_color = GOLD
     _radio_indicators(root, style)
     def refresh(widget):
         if hasattr(widget, "refresh_art"):

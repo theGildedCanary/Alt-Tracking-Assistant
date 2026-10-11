@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 
 import db
+import quest_log
+import notes_sync
 import settings_sync
 import roster_format
 import theme
@@ -177,6 +179,9 @@ def sync_database(paths):
                 guid: {**record, "progress": apply_overrides(record.get("progress"), record.get("manualOverrides"))}
                 for guid, record in merged.items()
             }
+            quest_log.merge_addon(conn, list(characters.values()))
+            notes_sync.merge(conn, list(characters.values()))
+            notes_sync.publish(conn, paths)
             db.sync_characters(conn, characters, mains)
         return sorted(db.load_characters(conn), key=roster_sort_key)
     finally:
@@ -558,7 +563,7 @@ def run_gui():
     except tk.TclError:
         pass
     root.geometry("1280x760")
-    ui_theme_var = tk.StringVar(value=config.get("ui_theme", "WoW Mode"))
+    ui_theme_var = tk.StringVar(value="WoW Mode")
     theme.apply_ui_theme(root, ui_theme_var.get())
 
     import grid as grid_module
@@ -597,7 +602,6 @@ def run_gui():
     professions_tab = ProfessionsTab(notebook, profession_dashboard_state,
                                     save_profession_dashboard, ui_theme_var.get())
     notebook.add(professions_tab, text="Professions")
-    import quest_log
     from quest_log_ui import QuestLogTab
     conn = db.connect()
     try:
@@ -637,6 +641,7 @@ def run_gui():
         render_roster()
 
     def change_ui_theme(mode):
+        mode = "WoW Mode"
         ui_theme_var.set(mode)
         theme.apply_ui_theme(root, mode)
 
@@ -770,11 +775,15 @@ def run_gui():
     roster_split.add(roster_grid, weight=3)
     quest_tab.details.destroy()
     from character_pane import CharacterPane
-    quest_tab.details = CharacterPane(roster_split, quest_tab.close_details, quest_tab.render_details)
+    def close_roster_details():
+        quest_tab.close_details()
+        roster_grid.select_cell()
+
+    quest_tab.details = CharacterPane(roster_split, close_roster_details, quest_tab.render_details, note_paths=lambda: list(files))
     quest_tab.detail_split = roster_split
     quest_tab.list.left.bind('<Button-1>', quest_tab.delete_character_cell)
     quest_tab.list.left.unbind('<Return>')
-    quest_tab.list.left.configure(cursor='hand2')
+    quest_tab.list.left.configure(cursor='')
     def open_roster_quests(event, hover=False):
         canvas = event.widget
         if hover:
@@ -800,6 +809,7 @@ def run_gui():
                                             y+roster_grid.style.row_height-1, outline=theme.GOLD,
                                             width=2, tags='name_hover')
                     return
+                roster_grid.select_cell(row, index)
                 quest_tab.open_character(guid)
                 return
     roster_grid.left.bind('<Button-1>', open_roster_quests)
@@ -815,6 +825,12 @@ def run_gui():
             character["isMain"] = character["guid"] in mains
         columns, rows = build_roster_grid(format_state["characters"], fmt, settings_tab.settings, profession_dashboard_state)
         roster_grid.set_data(columns, rows, grid_module.style_from_format(fmt))
+        if roster_grid.selected_cell is not None:
+            row = next((index for index, character in enumerate(format_state['characters'])
+                        if character['guid'] == quest_tab.selected), None)
+            specs = [spec for spec in fmt['columns'] if spec['visible']]
+            column = next((index for index, spec in enumerate(specs) if spec['key'] == 'name'), None)
+            roster_grid.select_cell(row, column) if column is not None else roster_grid.select_cell()
 
     def reload_roster():
         try:
@@ -825,9 +841,14 @@ def run_gui():
             return
         format_state["characters"] = characters
         professions_tab.load(characters)
+        sync_conn = db.connect()
+        try:
+            quest_tab.state, quest_removed = quest_log.merge_addon(sync_conn, characters)
+        finally:
+            sync_conn.close()
         quest_tab.load(characters)
         try:
-            quest_log.publish(list(files), quest_tab.state)
+            quest_log.publish(list(files), quest_tab.state, quest_removed)
         except OSError as error:
             quest_tab.notice.set(f"Quest assignments saved locally; addon sync failed: {error}")
         settings_tab.load(characters, settings, pending)
