@@ -48,7 +48,7 @@ The Quest Log sits between Professions and Settings. Add only the characters you
 
 Add quests and tasks from the dashboard. Give quests a nickname for the vertical headings and choose any tracking characters. Click a heading or task name to edit its settings and assignments. Weeklies use purple columns, Dailies blue, and To Dos green. Manual tasks have gold completion checkboxes directly in the grid, with separate progress per character.
 
-Reset weekday selections replace the old reset dropdown. Choose all seven days for Daily, one day for Weekly, or several days for that schedule. Leave all unchecked for no reset. Each selected day resets at **11 a.m. fixed EST (UTC−5)**. Existing weekly schedules default to Tuesday. [D]/[W] identify Daily/Weekly; [1], [2], and [3] identify High, Medium, and Low priority. Remove from character removes one assignment; Delete to do removes all assignments for that quest/task.
+Reset weekday selections replace the old reset dropdown. Choose all seven days for Daily, one day for Weekly, or several days for that schedule. Leave all unchecked for no reset. Each selected day resets at **11 a.m. fixed EDT (UTC−4)**. Existing weekly schedules default to Tuesday. [D]/[W] identify Daily/Weekly; [1], [2], and [3] identify High, Medium, and Low priority. Remove from character removes one assignment; Delete to do removes all assignments for that quest/task.
 
 Quest indicators are ○ not picked up, an empty checkbox for picked up or pending, a checked checkbox for completed, ? awaiting scan, and — not assigned. Completed quest snapshots need a new character scan after a reset. Quest Log refreshes with the rest of the app after WoW saves on logout or reload. Popups remember their placement.
 

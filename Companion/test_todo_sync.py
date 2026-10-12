@@ -1,4 +1,5 @@
 import sqlite3
+from unittest import mock
 import unittest
 from datetime import datetime
 import db
@@ -8,14 +9,14 @@ from lua_parser import parse_saved_variables
 
 class TodoSyncTests(unittest.TestCase):
     def test_custom_weekdays_reset_at_fixed_est(self):
-        now = datetime(2026, 10, 11, 12, tzinfo=model.EST).timestamp()
+        now = datetime(2026, 10, 11, 12, tzinfo=model.EDT).timestamp()
         task = model.new_task('Monday and Wednesday', reset='Custom', reset_days=[1, 3])
         model.set_status(task, 'Completed', {}, now)
-        expected = datetime(2026, 10, 12, 11, tzinfo=model.EST).timestamp()
+        expected = datetime(2026, 10, 12, 11, tzinfo=model.EDT).timestamp()
         self.assertEqual(task['resetAt'], expected)
         self.assertTrue(model.apply_resets({'a': [task]}, {}, expected))
         self.assertEqual(task['status'], 'Pending')
-        self.assertEqual(task['resetAt'], datetime(2026, 10, 14, 11, tzinfo=model.EST).timestamp())
+        self.assertEqual(task['resetAt'], datetime(2026, 10, 14, 11, tzinfo=model.EDT).timestamp())
 
     def test_indexed_addon_arrays_and_deleted_task_stays_deleted(self):
         conn = sqlite3.connect(':memory:')
@@ -59,9 +60,9 @@ class TodoSyncTests(unittest.TestCase):
         self.assertEqual(model.task_reset(weekly, {}), 'Weekly')
         self.assertEqual(model.task_reset(daily, {}), 'Daily')
         self.assertEqual(model.task_reset(permanent, {}), 'None')
-        monday = datetime(2026, 10, 12, 12, tzinfo=model.EST).timestamp()
+        monday = datetime(2026, 10, 12, 12, tzinfo=model.EDT).timestamp()
         boundary = model.next_reset('Weekly', monday, weekly['resetDays'])
-        self.assertEqual(boundary, datetime(2026, 10, 14, 11, tzinfo=model.EST).timestamp())
+        self.assertEqual(boundary, datetime(2026, 10, 14, 11, tzinfo=model.EDT).timestamp())
 
     def test_remove_assignment_and_delete_everywhere(self):
         import tkinter as tk
@@ -109,3 +110,45 @@ class TodoSyncTests(unittest.TestCase):
         self.assertEqual(after[1].bg, theme.CLASS_COLORS['DRUID'])
         self.assertTrue(all(cell.bg == '' for cell in after[2:]))
         self.assertTrue(after[-1].checked)
+
+    def test_scheduled_daily_reset_is_not_postponed_by_metadata_edit(self):
+        before = datetime(2026, 10, 11, 10, tzinfo=model.EDT).timestamp()
+        boundary = datetime(2026, 10, 11, 11, tzinfo=model.EDT).timestamp()
+        task = model.new_task('Daily task', reset='Daily')
+        model.set_status(task, 'Completed', {}, before)
+        task.update(title='Edited title', changedAt=boundary+60)
+        self.assertTrue(model.apply_resets({'a':[task]}, {}, boundary+60))
+        self.assertEqual(task['status'], 'Pending')
+        self.assertFalse(task['done'])
+        self.assertEqual(task['resetAt'], boundary+86400)
+        self.assertFalse(model.apply_resets({'a':[task]}, {}, boundary+61))
+
+    def test_open_panel_resets_without_savedvariables_refresh(self):
+        import tkinter as tk
+        from quest_log_ui import QuestLogTab
+        root=tk.Tk(); root.withdraw()
+        self.addCleanup(root.destroy)
+        before=datetime(2026,10,12,10,tzinfo=model.EDT).timestamp()
+        boundary=datetime(2026,10,12,11,tzinfo=model.EDT).timestamp()
+        task=model.new_task('Daily',reset='Daily')
+        model.set_status(task,'Completed',{},before)
+        saved=[]
+        tab=QuestLogTab(root,{'a':[task]},on_save=lambda state:saved.append(state))
+        with mock.patch.object(model.time,'time',return_value=before):
+            tab.load([{'guid':'a','name':'A'}]); tab.open_character('a')
+        children=tuple(tab.details.inner.winfo_children())
+        with mock.patch.object(model.time,'time',return_value=boundary):
+            self.assertTrue(tab.apply_due_resets(boundary))
+        self.assertEqual(saved[-1]['a'][0]['status'],'Pending')
+        self.assertFalse(tab._status_widgets[0][1].get())
+        self.assertEqual(tuple(tab.details.inner.winfo_children()),children)
+
+    def test_old_est_deadline_migrates_and_resets_overdue_task(self):
+        now=datetime(2026,10,12,11,30,tzinfo=model.EDT).timestamp()
+        old_deadline=datetime(2026,10,12,12,tzinfo=model.EDT).timestamp()
+        task={'id':'old','title':'Patron Orders','reset':'Daily','status':'Completed','done':True,
+              'changedAt':now-86400,'resetAt':old_deadline,'resetSchedule':'11amEST'}
+        self.assertTrue(model.apply_resets({'a':[task]}, {}, now))
+        self.assertEqual(task['status'],'Pending')
+        self.assertEqual(task['resetSchedule'],'11amEDT')
+        self.assertEqual(task['resetAt'],datetime(2026,10,13,11,tzinfo=model.EDT).timestamp())

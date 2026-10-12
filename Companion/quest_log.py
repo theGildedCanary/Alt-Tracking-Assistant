@@ -10,14 +10,14 @@ import settings_sync
 STATE_KEY = "quest_log"
 STATUSES = ("Pending", "In progress", "Completed")
 RESETS = ("Unknown", "None", "Daily", "Weekly")
-EST = timezone(timedelta(hours=-5), 'EST')
+EDT = timezone(timedelta(hours=-4), 'EDT')
 
 
 def next_reset(reset, now=None, reset_days=None):
-    """User-defined resets: 11 a.m. fixed EST, Tuesday for weekly tasks."""
+    """User-defined resets: 11 a.m. fixed EDT, Tuesday for weekly tasks."""
     if reset not in ('Daily', 'Weekly', 'Custom'):
         return None
-    current = datetime.fromtimestamp(time.time() if now is None else now, EST)
+    current = datetime.fromtimestamp(time.time() if now is None else now, EDT)
     boundary = current.replace(hour=11, minute=0, second=0, microsecond=0)
     days = set(reset_days or [2]) if reset == 'Weekly' else set(reset_days or []) if reset == 'Custom' else set(range(1, 8))
     for offset in range(8):
@@ -171,10 +171,10 @@ def task_status(task, record, now=None):
 
 def set_status(task, status, record, now=None):
     now = time.time() if now is None else now
-    task.update(status=status, changedAt=now)
+    task.update(status=status, done=status == "Completed", changedAt=now)
     reset = task_reset(task, record)
     task['resetAt'] = next_reset(reset, now, task.get('resetDays'))
-    task['resetSchedule'] = '11amEST'
+    task['resetSchedule'] = '11amEDT'
 
 
 def apply_resets(state, records, now=None):
@@ -184,12 +184,14 @@ def apply_resets(state, records, now=None):
         for task in tasks:
             if is_automatic(task) or task.get('reset') not in ('Daily', 'Weekly', 'Custom'):
                 continue
-            due = next_reset(task['reset'], task.get('changedAt', now), task.get('resetDays'))
-            if task.get('resetSchedule') != '11amEST' or task.get('resetAt') != due:
-                task.update(resetAt=due, resetSchedule='11amEST')
+            due = task.get('resetAt') if task.get('resetSchedule') == '11amEDT' else None
+            if due is None:
+                due = next_reset(task['reset'], task.get('changedAt', task.get('created', now)), task.get('resetDays'))
+            if task.get('resetSchedule') != '11amEDT' or task.get('resetAt') != due:
+                task.update(resetAt=due, resetSchedule='11amEDT')
                 changed = True
             if due and now >= due:
-                task.update(status='Pending', resetAt=next_reset(task['reset'], now, task.get('resetDays')), changedAt=now)
+                task.update(status='Pending', done=False, resetAt=next_reset(task['reset'], now, task.get('resetDays')), changedAt=now)
                 changed = True
     return changed
 

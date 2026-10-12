@@ -201,9 +201,9 @@ class QuestLogTests(unittest.TestCase):
         task['resetMode'] = 'Auto'
         self.assertEqual(model.task_reset(task, record), 'Daily')
 
-    def test_fixed_est_reset_boundaries(self):
+    def test_fixed_edt_reset_boundaries(self):
         def stamp(value):
-            return datetime.fromisoformat(value).replace(tzinfo=model.EST).timestamp()
+            return datetime.fromisoformat(value).replace(tzinfo=model.EDT).timestamp()
         monday = stamp('2026-10-12T10:59:59')
         self.assertEqual(model.next_reset('Daily', monday), stamp('2026-10-12T11:00:00'))
         self.assertEqual(model.next_reset('Weekly', monday), stamp('2026-10-13T11:00:00'))
@@ -211,7 +211,7 @@ class QuestLogTests(unittest.TestCase):
         self.assertEqual(model.next_reset('Weekly', tuesday_reset), stamp('2026-10-20T11:00:00'))
         self.assertEqual(model.next_reset('Daily', tuesday_reset), stamp('2026-10-14T11:00:00'))
         for date in ('2026-07-01T10:00:00', '2026-12-01T10:00:00'):
-            self.assertEqual(datetime.fromtimestamp(model.next_reset('Daily', stamp(date)), timezone.utc).hour, 16)
+            self.assertEqual(datetime.fromtimestamp(model.next_reset('Daily', stamp(date)), timezone.utc).hour, 15)
         self.assertIsNone(model.next_reset('None', monday))
 
     def test_editor_reset_nickname_and_hidden_ids(self):

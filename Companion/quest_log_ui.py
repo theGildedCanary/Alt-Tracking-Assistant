@@ -358,7 +358,7 @@ class QuestLogTab(ttk.Frame):
                 widget = ttk.Combobox(editor, textvariable=fields[key], state='readonly', values=values)
             widget.grid(row=row, column=1, sticky='ew', pady=5)
         reset_days = self.reset_day_selector(editor, task, row=5)
-        ttk.Label(editor, text='Selected days reset at 11 a.m. EST. Leave all unchecked for no reset.').grid(row=3, column=0, columnspan=2, pady=5)
+        ttk.Label(editor, text='Selected days reset at 11 a.m. EDT. Leave all unchecked for no reset.').grid(row=3, column=0, columnspan=2, pady=5)
         ttk.Label(editor, text='Notes / steps').grid(row=4, column=0, sticky='nw', padx=(0, 10))
         notes = tk.Text(editor, height=4, width=36, wrap='word')
         notes.grid(row=4, column=1, sticky='ew')
@@ -621,7 +621,7 @@ class QuestLogTab(ttk.Frame):
         row = len(rows)
         reset_days = self.reset_day_selector(frame, task, row=row)
         row += 1
-        ttk.Label(frame, text='Selected days reset at 11 a.m. EST. Leave all unchecked for no reset.').grid(row=row, column=0, columnspan=2, pady=5)
+        ttk.Label(frame, text='Selected days reset at 11 a.m. EDT. Leave all unchecked for no reset.').grid(row=row, column=0, columnspan=2, pady=5)
         row += 1
         ttk.Label(frame, text="Notes / steps").grid(row=row, column=0, sticky='nw', pady=5)
         notes = tk.Text(frame, width=42, height=6, wrap='word')
@@ -708,3 +708,10 @@ class QuestLogTab(ttk.Frame):
             self.action_needed[guid] = True
         else:
             self.action_needed.pop(guid, None)
+
+    def apply_due_resets(self, now=None):
+        if not model.apply_resets(self.state, self.records, now):
+            return False
+        self.update_status_widgets(self.selected)
+        self.commit(refresh=False)
+        return True

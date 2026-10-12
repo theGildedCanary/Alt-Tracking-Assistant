@@ -88,7 +88,7 @@ Download from the GitHub Releases page:
 
 The Windows companion is included in `AltTrackingAssistant-v2.2.1.zip`. After extracting the addon, launch `AltTrackingAssistantCompanion.exe` from the main `AltTrackingAssistant` folder.
 
-The Companion **Quest Log** tracks selected characters, quests, and shared manual tasks. Add items from the dashboard, assign them across characters, and check off manual tasks in their columns. Select reset weekdays at 11 a.m. fixed EST. Click a character on the Roster to open Info, To Do, and editable Notes / History. See [Companion usage](Companion/README.md#quest-log-v220) for scan and sync steps.
+The Companion **Quest Log** tracks selected characters, quests, and shared manual tasks. Add items from the dashboard, assign them across characters, and check off manual tasks in their columns. Select reset weekdays at 11 a.m. fixed EDT. Click a character on the Roster to open Info, To Do, and editable Notes / History. See [Companion usage](Companion/README.md#quest-log-v220) for scan and sync steps.
 
 Use the companion to view your roster, configure mains and tracker visibility, customize roster columns, expansion blocks, individual trackers, highlights, and covenant colors, track profession skill progress, and export local `.xlsx` or `.csv` files. No sign-in is required. The addon works without running the companion.
 

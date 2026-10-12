@@ -78,7 +78,10 @@ local scheduled = false
 local worldReady = false
 local loginQueued = false
 frame:SetScript("OnEvent", function(_, event, initialLogin, reloadingUI)
-    if event == "PLAYER_LOGIN" then return end
+    if event == "PLAYER_LOGIN" then
+        ATA:RefreshCompanionTasks()
+        return
+    end
     if event == "PLAYER_ENTERING_WORLD" then
         if loginQueued or worldReady then return end
         loginQueued = true
@@ -106,10 +109,10 @@ frame:SetScript("OnEvent", function(_, event, initialLogin, reloadingUI)
     end)
 end)
 
--- Manual reset days use ISO weekdays (Monday=1), at 11 a.m. fixed EST.
+-- Manual reset days use ISO weekdays (Monday=1), at 11 a.m. fixed EDT.
 function ATA:NextTodoReset(reset, now, days)
     if reset ~= "Daily" and reset ~= "Weekly" and reset ~= "Custom" then return nil end
-    local boundary = math.floor((now - 57600) / 86400) * 86400 + 57600
+    local boundary = math.floor((now - 54000) / 86400) * 86400 + 54000
     for offset=0,7 do
         local candidate = boundary + offset * 86400
         local day = (math.floor(candidate / 86400) + 3) % 7 + 1
@@ -131,7 +134,14 @@ function ATA:TodoState(record, todo)
         if not data or boundary and now >= boundary then return false, reset, "?" end
         return data.status == "Completed", reset, todo.questID and not data.pickedUp and data.status ~= "Completed" and "o" or nil
     end
-    local due = todo.resetAt or self:NextTodoReset(reset, todo.changedAt or todo.created or now, todo.resetDays)
+    if todo.done == nil then
+        todo.done = todo.status == "Completed" or todo.active == false
+        todo.active = nil
+    end
+    local anchor = todo.changedAt or todo.created or record.lastScanned or 0
+    local due = todo.resetSchedule == "11amEDT" and todo.resetAt or nil
+    due = due or self:NextTodoReset(reset, anchor, todo.resetDays)
+    todo.resetSchedule = "11amEDT"
     if due and now >= due then
         todo.done = false; todo.status = "Pending"; todo.changedAt = now
         due = self:NextTodoReset(reset, now, todo.resetDays)
@@ -163,6 +173,11 @@ function ATA:SyncTodoAssignments(record)
         local todo = record.todos[index]
         if (record.todoDeleted[todo.id] or 0) >= (todo.changedAt or todo.created or 0) then table.remove(record.todos, index) end
     end
+    -- Catch up missed resets before imported/saved tasks are shown, including
+    -- login after the deadline and new assignments imported after login.
+    for _, todo in ipairs(record.todos) do
+        if not (todo.questID or todo.achievementID or todo.itemID) then self:TodoState(record, todo) end
+    end
 end
 
 function ATA:RefreshCompanionTasks()
@@ -173,3 +188,16 @@ function ATA:RefreshCompanionTasks()
         end
     end
 end
+
+-- Apply manual resets even when the Notes panel is closed and no quest events fire.
+local resetElapsed = 0
+frame:SetScript("OnUpdate", function(_, elapsed)
+    resetElapsed = resetElapsed + elapsed
+    if resetElapsed < 5 then return end
+    resetElapsed = 0
+    for _, record in pairs(ATA.db and ATA.db.characters or {}) do
+        for _, todo in ipairs(record.todos or {}) do
+            if not (todo.questID or todo.achievementID or todo.itemID) then ATA:TodoState(record, todo) end
+        end
+    end
+end)

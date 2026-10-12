@@ -911,6 +911,7 @@ def run_gui():
     last_seen = {str(f): (f.stat().st_mtime_ns, f.stat().st_size) for f in files if f.exists()}
 
     def poll():
+        quest_tab.apply_due_resets()
         if files:
             current = {str(f): (f.stat().st_mtime_ns, f.stat().st_size) for f in files if f.exists()}
             if current != last_seen:

@@ -10,6 +10,11 @@ The project uses semantic versioning:
 
 ## [2.2.1] - 2026-10-11
 
+### Fixed
+
+- Recurring manual tasks reset while the app/addon stays open, even without saved-data changes or an open Notes panel. Existing reset deadlines are preserved when task metadata is edited. Reset time is corrected to 11 a.m. EDT (UTC−4); existing EST deadlines migrate automatically.
+
+
 ### Added
 
 - Action Needed checkbox in the Companion character To Do panel. Checking it highlights that character's name on the Roster with a reddish maroon background; unchecking restores the usual formatting.

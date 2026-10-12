@@ -87,6 +87,7 @@ function ATA:ToggleTodo(characterKey, todoId)
             todo.status = todo.done and "Completed" or "Pending"
             todo.changedAt = GetServerTime()
             todo.resetAt = self:NextTodoReset(todo.reset, todo.changedAt, todo.resetDays)
+            todo.resetSchedule = "11amEDT"
             return true
         end
     end
@@ -300,7 +301,7 @@ function ATA.CreateNotesPanel(parent, helpers)
     end
     local inputHint = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     inputHint:SetTextColor(1, 1, 1, 0.7)
-    inputHint:SetText("Optional ID: quest number, achievement:ID or item:ID. Reset days: 11 a.m. EST.")
+    inputHint:SetText("Optional ID: quest number, achievement:ID or item:ID. Reset days: 11 a.m. EDT.")
     local automaticTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     automaticTitle:SetText("AUTOMATIC"); automaticTitle:SetTextColor(unpack(colors.gold))
     local manualTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
