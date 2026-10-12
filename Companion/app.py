@@ -290,6 +290,8 @@ def _cell_name(record, fmt):
     from grid import Cell
 
     colors = fmt["colors"]
+    if record.get("actionNeeded"):
+        return Cell(record.get("name") or "", fg=theme.TEXT, bg=theme.ACTION_NEEDED_BG)
     return Cell(record.get("name") or "", fg=colors["mainName"] if fmt["mainHighlight"] and record.get("isMain") else colors["text"])
 
 
@@ -606,6 +608,7 @@ def run_gui():
     conn = db.connect()
     try:
         quest_state = quest_log.load(conn)
+        action_needed = db.get_json(conn, "character_action_needed") or {}
     finally:
         conn.close()
 
@@ -616,13 +619,29 @@ def run_gui():
         finally:
             conn.close()
 
+    def save_action_needed(guid, needed):
+        updated = dict(action_needed)
+        if needed:
+            updated[guid] = True
+        else:
+            updated.pop(guid, None)
+        conn = db.connect()
+        try:
+            db.set_json(conn, 'character_action_needed', updated)
+        finally:
+            conn.close()
+        action_needed.clear()
+        action_needed.update(updated)
+        render_roster()
+
     def save_quest_popup_positions(positions):
         config['quest_popup_positions'] = positions
         persist()
 
     quest_tab = QuestLogTab(notebook, quest_state, save_quest_log,
                            lambda: reload_roster(), ui_theme_var.get(),
-                           config.get('quest_popup_positions'), save_quest_popup_positions)
+                           config.get('quest_popup_positions'), save_quest_popup_positions,
+                           action_needed=action_needed, on_action_needed=save_action_needed)
     notebook.add(quest_tab, text="Quest Log")
     from settings_ui import SettingsTab
 
@@ -823,6 +842,7 @@ def run_gui():
         mains = db.main_guids(settings_tab.settings)
         for character in format_state["characters"]:
             character["isMain"] = character["guid"] in mains
+            character["actionNeeded"] = bool(action_needed.get(character["guid"]))
         columns, rows = build_roster_grid(format_state["characters"], fmt, settings_tab.settings, profession_dashboard_state)
         roster_grid.set_data(columns, rows, grid_module.style_from_format(fmt))
         if roster_grid.selected_cell is not None:

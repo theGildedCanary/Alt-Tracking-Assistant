@@ -252,3 +252,5 @@ def _radio_indicators(root, style):
                     for name, options in layout]
         for name in ("TCheckbutton", "TRadiobutton"):
             style.layout(name, replace(style.layout(name)))
+
+ACTION_NEEDED_BG = "#7A263A"

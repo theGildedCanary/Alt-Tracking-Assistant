@@ -67,7 +67,7 @@ The selected-character header presents the character portrait and selector, real
 
 Expansion progress uses a fixed three-column grid within bordered cards. Shadowlands uses `#1C488E`, Dragonflight uses `#04404A`, The War Within uses `#792D0B`, and Midnight uses `#331E53` for their title banners and section borders. Each expansion has its own title treatment and progress-bar color, while the progress-check area retains the standard brown panel.
 
-Current addon version: **2.2.0**.
+Current addon version: **2.2.1**.
 
 Version 2.2.0 adds the Companion Quest Log, roster Info / To Do / Notes panel, recurring weekday resets, and shared addon automatic/manual tasks. See [release notes](RELEASE_NOTES.md) and [Companion instructions](Companion/README.md). The addon Rescan button scans and then reloads the UI to import Companion changes; it cannot run in combat.
 
@@ -86,7 +86,7 @@ Download from the GitHub Releases page:
 
 ### Optional Windows companion
 
-The Windows companion is included in `AltTrackingAssistant-v2.2.0.zip`. After extracting the addon, launch `AltTrackingAssistantCompanion.exe` from the main `AltTrackingAssistant` folder.
+The Windows companion is included in `AltTrackingAssistant-v2.2.1.zip`. After extracting the addon, launch `AltTrackingAssistantCompanion.exe` from the main `AltTrackingAssistant` folder.
 
 The Companion **Quest Log** tracks selected characters, quests, and shared manual tasks. Add items from the dashboard, assign them across characters, and check off manual tasks in their columns. Select reset weekdays at 11 a.m. fixed EST. Click a character on the Roster to open Info, To Do, and editable Notes / History. See [Companion usage](Companion/README.md#quest-log-v220) for scan and sync steps.
 
@@ -140,12 +140,12 @@ To publish a release:
 1. Update `## Version:` in `AltTrackingAssistant.toc`.
 2. Update `CHANGELOG.md`.
 3. Commit the release changes.
-4. Create and publish a GitHub Release using the matching tag `v2.2.0`.
+4. Create and publish a GitHub Release using the matching tag `v2.2.1`.
 
 The release workflow verifies that the tag and TOC versions match, validates the addon, and attaches:
 
 ```text
-AltTrackingAssistant-v2.2.0.zip
+AltTrackingAssistant-v2.2.1.zip
 ```
 
 The ZIP contains an `AltTrackingAssistant` folder ready to place directly in `Interface/AddOns`. It includes the addon and Windows companion executable together. GitHub builds the companion on Windows and packages neutral settings, quest/task, and notes sync files without personal data.

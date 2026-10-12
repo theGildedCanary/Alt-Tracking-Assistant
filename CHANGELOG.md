@@ -8,6 +8,13 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
+## [2.2.1] - 2026-10-11
+
+### Added
+
+- Action Needed checkbox in the Companion character To Do panel. Checking it highlights that character's name on the Roster with a reddish maroon background; unchecking restores the usual formatting.
+- Action Needed flags persist per character across app restarts and refreshes, independently of task completion.
+
 ## [2.2.0] - 2026-10-11
 
 ### Added

@@ -15,8 +15,10 @@ from quest_log_grid import build_grid
 
 
 class QuestLogTab(ttk.Frame):
-    def __init__(self, parent, state=None, on_save=None, on_refresh=None, mode="WoW Mode", popup_positions=None, on_position_save=None):
+    def __init__(self, parent, state=None, on_save=None, on_refresh=None, mode="WoW Mode", popup_positions=None, on_position_save=None, action_needed=None, on_action_needed=None):
         super().__init__(parent, padding=10)
+        self.action_needed = dict(action_needed or {})
+        self.on_action_needed = on_action_needed or (lambda guid, needed: None)
         self.state = copy.deepcopy(state or {})
         self.on_save = on_save or (lambda state: None)
         self.records, self.choices = {}, {}
@@ -475,6 +477,9 @@ class QuestLogTab(ttk.Frame):
         actions.pack(fill="x", padx=8, pady=8)
         Button(actions, text="+ Quest", command=lambda: self.editor(True)).pack(side="left")
         Button(actions, text="+ Task", command=lambda: self.editor(False)).pack(side="left", padx=6)
+        self.action_needed_var = tk.BooleanVar(value=bool(self.action_needed.get(self.selected)))
+        ttk.Checkbutton(actions, text='Action Needed', variable=self.action_needed_var,
+                        command=self.toggle_action_needed).pack(side='left', padx=(12, 0))
         tasks = self.state.get(self.selected, [])
         for title, automatic in (("Auto Tracking", True), ("To do list", False)):
             section = Section(inner, text=title, padding=8, colors=self.colors)
@@ -691,3 +696,14 @@ class QuestLogTab(ttk.Frame):
             toggle._reset_day = day
             toggle.pack(side='left')
         return values
+
+    def toggle_action_needed(self):
+        guid = self.selected
+        if not guid:
+            return
+        needed = self.action_needed_var.get()
+        self.on_action_needed(guid, needed)
+        if needed:
+            self.action_needed[guid] = True
+        else:
+            self.action_needed.pop(guid, None)

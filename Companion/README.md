@@ -58,6 +58,8 @@ Click a character name on the Roster to open Info, To Do, and Notes. The selecte
 
 **Info** provides an editable character profile with supported HTML formatting. Edit Info shows the HTML source; Save Info renders it. The info icon lists supported tags/CSS. This is a native renderer with a supported subset, not a full browser. Choose a WoW weather image header or insert colors through the hex/color picker. Montserrat is the default; Skurri, Morpheus, and Friz Quadrata TT are bundled.
 
+**To Do** includes an **Action Needed** checkbox. Check it to highlight this character’s name with a reddish maroon background on the Roster; uncheck it to restore normal formatting. The flag is saved per character and remains independent of task completion.
+
 **To Do** groups quests, achievements, and item tracking under Auto Tracking, followed by manual tasks. Use the completion checkbox for manual items and the square pen, character, and X buttons to manage assignments.
 
 **Notes** reads and edits the addon's Notes / History. Enter a note and click Save, or click the pen before an existing note to edit it. Year and day headers collapse independently and include entry counts; editing preserves the original date. The X asks before deleting.

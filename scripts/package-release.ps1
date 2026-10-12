@@ -1,5 +1,5 @@
 # Package the addon and built Companion with neutral sync files.
-param([string]$ReleaseTag = 'v2.2.0')
+param([string]$ReleaseTag = 'v2.2.1')
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $tocPath = Join-Path $repositoryRoot 'AltTrackingAssistant.toc'
