@@ -379,7 +379,7 @@ class QuestLogTests(unittest.TestCase):
         self.assertEqual(len(set(group_colors.values())), 4)
         self.assertNotIn('#ffffff', group_colors.values())
 
-    def test_popup_placement_restored_and_saved_independently(self):
+    def test_popups_center_instead_of_restoring_saved_positions(self):
         root = tk.Tk()
         root.withdraw()
         self.addCleanup(root.destroy)
@@ -389,19 +389,19 @@ class QuestLogTests(unittest.TestCase):
         tab = QuestLogTab(root, {'a': [model.new_task('Task')]},
                           popup_positions={'assignments': assignment_position},
                           on_position_save=lambda positions: saved.append(positions))
-        with mock.patch('quest_log_ui.window_position.restore') as restore, \
+        with mock.patch('quest_log_ui.window_position.center_popup') as center, \
              mock.patch('quest_log_ui.window_position.capture', return_value=moved_position):
             dialog = tab.assignment_popup(tab.state['a'][0])
-            restore.assert_called_with(dialog, assignment_position)
+            center.assert_called_with(dialog)
             tab.close_popup(dialog)
             self.assertEqual(saved[-1]['assignments'], moved_position)
             dialog = tab.assignment_popup(tab.state['a'][0])
-            restore.assert_called_with(dialog, moved_position)
+            center.assert_called_with(dialog)
             tab.close_popup(dialog)
             tab.open_character('a')
             tab.editor(False)
             dialog = next(w for w in tab.winfo_children() if isinstance(w, tk.Toplevel))
-            restore.assert_called_with(dialog, None)
+            center.assert_called_with(dialog)
             tab.close_popup(dialog)
             self.assertEqual(set(saved[-1]), {'assignments', 'task_editor'})
 

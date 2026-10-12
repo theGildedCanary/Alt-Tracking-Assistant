@@ -171,7 +171,7 @@ class QuestLogTab(ttk.Frame):
     def prepare_popup(self, dialog, kind):
         dialog._quest_popup_kind = kind
         dialog.update_idletasks()
-        window_position.restore(dialog, self.popup_positions.get(kind))
+        window_position.center_popup(dialog)
         dialog.protocol('WM_DELETE_WINDOW', lambda: self.close_popup(dialog))
         dialog.bind('<Escape>', lambda _: self.close_popup(dialog))
         dialog.bind('<Configure>', lambda event: self.remember_popup(dialog)
@@ -592,6 +592,7 @@ class QuestLogTab(ttk.Frame):
         Button(frame, text='Delete to do', command=lambda: finish(True)).pack(fill='x', pady=3)
         Button(frame, text='Cancel', command=dialog.destroy).pack(fill='x', pady=3)
         self.brown_widgets(dialog)
+        window_position.center_popup(dialog)
         return dialog
 
     def editor(self, quest, task=None, global_add=False):

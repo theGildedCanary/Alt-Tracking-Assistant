@@ -56,6 +56,8 @@ Quest indicators are ○ not picked up, an empty checkbox for picked up or pendi
 
 Click a character name on the Roster to open Info, To Do, and Notes. The selected roster name remains highlighted until the panel closes.
 
+Companion popups open centered over the main app window on its current monitor. Saved popup positions no longer override this placement. Popups stay within the monitor's available work area where their size allows.
+
 **Info** provides an editable character profile with supported HTML formatting. Edit Info shows the HTML source; Save Info renders it. The info icon lists supported tags/CSS. This is a native renderer with a supported subset, not a full browser. Choose a WoW weather image header or insert colors through the hex/color picker. Montserrat is the default; Skurri, Morpheus, and Friz Quadrata TT are bundled.
 
 **To Do** includes an **Action Needed** checkbox. Check it to highlight this character’s name with a reddish maroon background on the Roster; uncheck it to restore normal formatting. The flag is saved per character and remains independent of task completion.

@@ -714,7 +714,7 @@ def run_gui():
         status_var.set(f"Found {len(files)} addon data file(s)." if files else "No addon data found in that folder.")
 
     def browse_wow():
-        chosen = filedialog.askdirectory(title="Select World of Warcraft folder", initialdir=wow_var.get() or None)
+        chosen = filedialog.askdirectory(parent=root, title="Select World of Warcraft folder", initialdir=wow_var.get() or None)
         if chosen:
             wow_var.set(os.path.normpath(chosen))
             persist()
@@ -722,6 +722,7 @@ def run_gui():
 
     def browse_output():
         chosen = filedialog.asksaveasfilename(
+            parent=root,
             title="Choose spreadsheet (existing file or new)",
             defaultextension=".xlsx",
             filetypes=[("Excel workbook", "*.xlsx"), ("CSV", "*.csv")],
@@ -766,7 +767,7 @@ def run_gui():
         if problem:
             status_var.set(problem)
             if not silent:
-                messagebox.showwarning(APP_NAME, problem)
+                messagebox.showwarning(APP_NAME, problem, parent=root)
             return
         persist()
         status_var.set("Exporting...")
@@ -776,7 +777,7 @@ def run_gui():
             if error:
                 status_var.set(f"Export failed: {error}")
                 if not silent:
-                    messagebox.showerror(APP_NAME, str(error))
+                    messagebox.showerror(APP_NAME, str(error), parent=root)
             else:
                 status_var.set(f"Exported {count} characters at {datetime.now():%H:%M:%S}.")
         run_in_background(lambda: export(paths, output), finished)

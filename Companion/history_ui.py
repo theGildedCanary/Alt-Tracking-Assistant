@@ -5,6 +5,7 @@ from datetime import datetime
 import db
 import notes_sync
 import theme
+import window_position
 from professions_ui import ScrollArea
 from widgets import Button, IconButton, WoWScrollbar
 
@@ -106,6 +107,7 @@ class HistoryPanel(ttk.Frame):
         Button(frame, text='Delete', command=confirm).pack(side='right')
         Button(frame, text='Cancel', command=dialog.destroy).pack(side='right', padx=6)
         dialog.bind('<Escape>', lambda _: dialog.destroy())
+        window_position.center_popup(dialog)
         return dialog
 
     def refresh(self):

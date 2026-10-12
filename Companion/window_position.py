@@ -62,6 +62,37 @@ def window_handle(root):
     return user32.GetAncestor(root.winfo_id(), 2)  # GA_ROOT
 
 
+user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+user32.GetWindowRect.restype = wintypes.BOOL
+user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int,
+                              ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+user32.SetWindowPos.restype = wintypes.BOOL
+
+
+def center_popup(dialog):
+    """Center over the Companion, including on displays with negative coordinates."""
+    root = dialog._root()
+    root.update_idletasks()
+    dialog.update_idletasks()
+    parent_rect, popup_rect = wintypes.RECT(), wintypes.RECT()
+    parent_handle, popup_handle = window_handle(root), window_handle(dialog)
+    if not (user32.GetWindowRect(parent_handle, ctypes.byref(parent_rect))
+            and user32.GetWindowRect(popup_handle, ctypes.byref(popup_rect))):
+        return False
+    width = popup_rect.right - popup_rect.left
+    height = popup_rect.bottom - popup_rect.top
+    x = parent_rect.left + (parent_rect.right - parent_rect.left - width) // 2
+    y = parent_rect.top + (parent_rect.bottom - parent_rect.top - height) // 2
+    info = MonitorInfo()
+    info.cbSize = ctypes.sizeof(info)
+    monitor = user32.MonitorFromWindow(parent_handle, 2)  # nearest monitor
+    if user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+        work = info.rcWork
+        x = max(work.left, min(x, work.right - width))
+        y = max(work.top, min(y, work.bottom - height))
+    return bool(user32.SetWindowPos(popup_handle, None, x, y, 0, 0, 0x15))  # no size/z-order/activation
+
+
 def monitor_bounds(monitor):
     info = MonitorInfo()
     info.cbSize = ctypes.sizeof(info)

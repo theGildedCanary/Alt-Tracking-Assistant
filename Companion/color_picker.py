@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 import theme
+import window_position
 from widgets import Button
 
 
@@ -66,7 +67,7 @@ class ColorPicker(tk.Toplevel):
         self.hex_value.trace_add('write', self.from_hex)
         self.from_hex()
         self.bind('<Escape>', lambda _: self.destroy())
-        self.geometry(f'+{parent.winfo_rootx()+30}+{parent.winfo_rooty()+50}')
+        window_position.center_popup(self)
         self.grab_set()
 
     def from_hex(self, *_):

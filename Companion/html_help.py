@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 import theme
+import window_position
 from widgets import Button, WoWScrollbar
 
 
@@ -66,13 +67,14 @@ def show_help(parent):
     existing = getattr(parent, '_html_help', None)
     if existing is not None and existing.winfo_exists():
         existing.deiconify()
+        window_position.center_popup(existing)
         existing.lift()
         return existing
     window = tk.Toplevel(parent, background=theme.PANEL)
     parent._html_help = window
     window.title('Supported HTML formatting')
     window.transient(parent.winfo_toplevel())
-    window.geometry(f'620x650+{parent.winfo_rootx()+20}+{parent.winfo_rooty()+30}')
+    window.geometry('620x650')
     window.protocol('WM_DELETE_WINDOW', window.withdraw)
     frame = ttk.Frame(window, padding=14)
     frame.pack(fill='both', expand=True)
@@ -95,4 +97,5 @@ def show_help(parent):
     text.configure(state='disabled')
     Button(frame, text='Close', command=window.withdraw).pack(anchor='e', pady=(10, 0))
     window.bind('<Escape>', lambda _: window.withdraw())
+    window_position.center_popup(window)
     return window
