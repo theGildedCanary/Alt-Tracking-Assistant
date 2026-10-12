@@ -321,7 +321,7 @@ class QuestLogTab(ttk.Frame):
                 task_key = getattr(column, 'task_key', None)
                 if quest_id or task_key:
                     matches = [t for tasks in self.state.values() for t in tasks
-                               if (t.get('questID') == quest_id if quest_id else model.assignment_key(t) == task_key)]
+                               if (model.assignment_key(t) == task_key if task_key else t.get('questID') == quest_id)]
                     if matches:
                         task = next((t for t in matches if t.get('title') == column.title), matches[0])
                         self.assignment_popup(task, column.title)
@@ -333,7 +333,8 @@ class QuestLogTab(ttk.Frame):
         dialog = tk.Toplevel(self)
         dialog.title('Edit task and characters')
         dialog.transient(self.winfo_toplevel())
-        dialog.geometry('520x680')
+        dialog.geometry('560x720')
+        dialog.minsize(520, 620)
         dialog.grab_set()
         dialog.bind('<Escape>', lambda _: dialog.destroy())
         frame = ttk.Frame(dialog, padding=16)
@@ -357,6 +358,10 @@ class QuestLogTab(ttk.Frame):
                 values = (('Auto', 'None', 'Daily', 'Weekly') if quest else ('None', 'Daily', 'Weekly', 'Custom')) if key == 'reset' else ('Low', 'Normal', 'High')
                 widget = ttk.Combobox(editor, textvariable=fields[key], state='readonly', values=values)
             widget.grid(row=row, column=1, sticky='ew', pady=5)
+        if quest:
+            fields['questIDs'] = tk.StringVar(value=', '.join(map(str, model.quest_ids(task))))
+            ttk.Label(editor, text='Quest IDs').grid(row=2, column=0, sticky='w', padx=(0, 10), pady=5)
+            ttk.Entry(editor, textvariable=fields['questIDs']).grid(row=2, column=1, sticky='ew', pady=5)
         reset_days = self.reset_day_selector(editor, task, row=5)
         ttk.Label(editor, text='Selected days reset at 11 a.m. EDT. Leave all unchecked for no reset.').grid(row=3, column=0, columnspan=2, pady=5)
         ttk.Label(editor, text='Notes / steps').grid(row=4, column=0, sticky='nw', padx=(0, 10))
@@ -398,7 +403,7 @@ class QuestLogTab(ttk.Frame):
             toggle.bind('<MouseWheel>', wheel)
         def save():
             try:
-                updated = model.new_task(fields['title'].get(), task.get('questID'), None,
+                updated = model.new_task(fields['title'].get(), fields['questIDs'].get() if quest else None, None,
                                          notes.get('1.0', 'end'), fields['priority'].get(), [day for day, value in reset_days.items() if value.get()])
             except ValueError as exc:
                 error.set(str(exc))
@@ -412,7 +417,7 @@ class QuestLogTab(ttk.Frame):
                     if model.assignment_key(assigned_task) != key:
                         continue
                     changed_reset = assigned_task.get('reset') != updated.get('reset') or assigned_task.get('resetDays') != updated.get('resetDays')
-                    for field in ('title', 'reset', 'resetMode', 'resetDays', 'priority', 'notes', 'changedAt'):
+                    for field in ('title', 'questID', 'questIDs', 'reset', 'resetMode', 'resetDays', 'priority', 'notes', 'changedAt'):
                         if field in updated:
                             assigned_task[field] = updated[field]
                     if not quest and changed_reset:
@@ -420,7 +425,7 @@ class QuestLogTab(ttk.Frame):
             self.close_popup(dialog)
             self.commit()
         controls = ttk.Frame(frame)
-        controls.pack(fill='x', pady=(12, 0))
+        controls.pack(side='bottom', fill='x', pady=(12, 0), before=frame.winfo_children()[0])
         Button(controls, text='Save', command=save).pack(side='right', padx=6)
         Button(controls, text='Cancel', command=lambda: self.close_popup(dialog)).pack(side='right')
         self.brown_widgets(dialog)
@@ -608,7 +613,7 @@ class QuestLogTab(ttk.Frame):
         fields = {}
         rows = [("title", "Nickname" if quest else 'Title', task.get('title', '') if task else '')]
         if quest:
-            rows.insert(0, ('questID', 'Quest ID', str(task['questID']) if task else ''))
+            rows.insert(0, ('questID', 'Quest IDs', ', '.join(map(str, model.quest_ids(task))) if task else ''))
         rows.append(('priority', 'Priority', task.get('priority', 'Normal') if task else 'Normal'))
         for row, (key, label, value) in enumerate(rows):
             ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 10), pady=5)
@@ -651,7 +656,7 @@ class QuestLogTab(ttk.Frame):
                 targets = [character for character, value in selections.items() if value.get()] if global_add else [guid]
                 if global_add and not targets:
                     raise ValueError('Select at least one tracked character. Add characters to the Quest Log first if needed.')
-                if quest and any(t is not task and t.get('questID') == updated['questID'] for character in targets for t in self.state.get(character, [])):
+                if quest and any(t is not task and model.assignment_key(t) == model.assignment_key(updated) for character in targets for t in self.state.get(character, [])):
                     raise ValueError('This quest is already assigned to this character.')
             except ValueError as exc:
                 error.set(str(exc))

@@ -1,5 +1,6 @@
 """Persistent opt-in quest assignments and reset-aware manual tasks."""
 import copy
+import re
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -33,6 +34,9 @@ def task_name(task, record):
 
 def assignment_key(task):
     """Quest IDs identify quests; shared IDs link copies of a manual task."""
+    ids = quest_ids(task)
+    if len(ids) > 1:
+        return ('questGroup', tuple(sorted(ids)))
     for kind in ('quest', 'achievement', 'item'):
         if task.get(kind + 'ID'):
             return (kind, task[kind + 'ID'])
@@ -87,7 +91,7 @@ def save(conn, paths, state):
 
 
 def publish(paths, state, removed=None):
-    assignments = {guid: {str(task['questID']): True for task in tasks if task.get('questID')}
+    assignments = {guid: {str(ident): True for task in tasks for ident in quest_ids(task)}
                    for guid, tasks in state.items()}
     for guid in set(state) | set(removed or {}):
         assignments.setdefault(guid, {}).update(_tasks=state.get(guid, []), _deleted=(removed or {}).get(guid, {}))
@@ -102,10 +106,8 @@ def publish(paths, state, removed=None):
 
 def new_task(title, quest_id=None, reset=None, notes="", priority="Normal", reset_days=None):
     title = title.strip()
-    if quest_id is not None:
-        if isinstance(quest_id, bool) or not str(quest_id).isascii() or not str(quest_id).isdigit() or not 0 < int(quest_id) <= 2147483647:
-            raise ValueError("Enter a positive numeric quest ID.")
-        quest_id = int(quest_id)
+    ids = parse_quest_ids(quest_id) if quest_id is not None else []
+    quest_id = ids[0] if ids else None
     if not title and quest_id is None:
         raise ValueError("Enter a task title.")
     if reset_days is not None:
@@ -122,12 +124,32 @@ def new_task(title, quest_id=None, reset=None, notes="", priority="Normal", rese
             raise ValueError('Select at least one reset day.')
         task['resetDays'] = days
     if quest_id:
+        task['questIDs'] = ids
         task['resetMode'] = reset
     return task
 
 
-def snapshot(task, record):
+def snapshot(task, record, now=None):
     data = record.get("questLog") or {}
+    ids = quest_ids(task)
+    if len(ids) > 1:
+        now = time.time() if now is None else now
+        choices = []
+        for ident in ids:
+            value = copy.copy((data.get('quests') or {}).get(str(ident), {}))
+            if not value:
+                choices.append({'status': 'Awaiting scan'})
+                continue
+            reset = task.get('resetMode') if task.get('resetMode') not in (None, 'Auto') else value.get('reset')
+            scanned = value.get('scannedAt') or data.get('scannedAt')
+            boundary = next_reset(reset, scanned, task.get('resetDays')) if scanned else None
+            if boundary and now >= boundary:
+                value['status'] = 'Awaiting new scan'
+                value['pickedUp'] = False
+            choices.append(value)
+        scores = {'Completed': 10, 'In progress': 8, 'Picked up': 7, 'Awaiting objectives': 6,
+                  'Awaiting scan': 3, 'Awaiting new scan': 2, 'Not picked up': 1}
+        return max(choices, key=lambda value: scores.get(value.get('status'), 0))
     for kind in ('quest', 'achievement', 'item'):
         if task.get(kind + 'ID'):
             return (data.get(kind + 's') or {}).get(str(task[kind + 'ID']), {})
@@ -148,7 +170,7 @@ def task_status(task, record, now=None):
     now = time.time() if now is None else now
     reset = task_reset(task, record)
     if is_automatic(task):
-        data = snapshot(task, record)
+        data = snapshot(task, record, now)
         if not data:
             return "Awaiting scan"
         scanned = data.get('scannedAt') or (record.get('questLog') or {}).get('scannedAt')
@@ -216,6 +238,8 @@ def merge_addon(conn, records):
             incoming_tasks = list(incoming_tasks.values())
         for incoming in incoming_tasks:
             task = copy.deepcopy(incoming)
+            if isinstance(task.get('questIDs'), dict):
+                task['questIDs'] = list(task['questIDs'].values())
             if isinstance(task.get('resetDays'), dict):
                 task['resetDays'] = list(task['resetDays'].values())
             ident = task.get('id')
@@ -248,3 +272,21 @@ def task_caption(task, record):
         if reset == 'Custom' and task.get('resetDays') else '')
     priority = '1' if task.get('priority') == 'High' else '3' if task.get('priority') == 'Low' else '2'
     return task_name(task, record) + marker + ' [' + priority + ']'
+
+
+def parse_quest_ids(value):
+    values = list(value.values()) if isinstance(value, dict) else list(value) if isinstance(value, (list, tuple)) else re.split(r'[,;\s]+', str(value).strip())
+    ids = []
+    for ident in values:
+        if isinstance(ident, bool) or not str(ident).isascii() or not str(ident).isdigit() or not 0 < int(ident) <= 2147483647:
+            raise ValueError('Enter positive quest IDs separated by commas or spaces.')
+        if int(ident) not in ids:
+            ids.append(int(ident))
+    if not ids:
+        raise ValueError('Enter at least one quest ID.')
+    return ids
+
+
+def quest_ids(task):
+    value = task.get('questIDs') or ([task['questID']] if task.get('questID') else [])
+    return list(value.values()) if isinstance(value, dict) else list(value)

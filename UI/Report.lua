@@ -948,6 +948,11 @@ local function CreateReportFrame()
             return
         end
         ATA:RefreshCompanionTasks()
+        local currentRecord = ATA.db and ATA.db.characters[UnitGUID("player")]
+        if currentRecord then
+            local ok, errorMessage = pcall(ATA.ScanQuestLog, ATA, currentRecord)
+            if not ok then print("|cffff4444Alt Tracking Assistant:|r Quest scan failed: " .. tostring(errorMessage)) end
+        end
         local called, success, result = pcall(ATA.ScanCurrentCharacter, ATA)
         if not called then result = success; success = false end
         if success then

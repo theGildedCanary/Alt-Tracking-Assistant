@@ -46,7 +46,7 @@ The **Roster** tab shows every character in a spreadsheet-style grid (realm, fac
 
 The Quest Log sits between Professions and Settings. Add only the characters you want to track. Reorder them with Order Characters; remove them with the red X before the table. Names show Level - Name with black text on class-colored backgrounds.
 
-Add quests and tasks from the dashboard. Give quests a nickname for the vertical headings and choose any tracking characters. Click a heading or task name to edit its settings and assignments. Weeklies use purple columns, Dailies blue, and To Dos green. Manual tasks have gold completion checkboxes directly in the grid, with separate progress per character.
+Add quests and tasks from the dashboard. Enter one or more Quest IDs separated by commas or spaces; any completed ID completes the task, supporting rotating weekly quests. Give quests a nickname for the vertical headings and choose any tracking characters. Click a heading or task name to edit its settings and assignments. Weeklies use purple columns, Dailies blue, and To Dos green. Manual tasks have gold completion checkboxes directly in the grid, with separate progress per character.
 
 Reset weekday selections replace the old reset dropdown. Choose all seven days for Daily, one day for Weekly, or several days for that schedule. Leave all unchecked for no reset. Each selected day resets at **11 a.m. fixed EDT (UTC−4)**. Existing weekly schedules default to Tuesday. [D]/[W] identify Daily/Weekly; [1], [2], and [3] identify High, Medium, and Low priority. Remove from character removes one assignment; Delete to do removes all assignments for that quest/task.
 

@@ -7,13 +7,16 @@ function ATA:ScanQuestLog(record)
     self:SyncTodoAssignments(record)
     local ids = {}
     for key in pairs(selected) do if tonumber(key) then ids[key] = true end end
-    for _, todo in ipairs(record.todos) do if todo.questID then ids[tostring(todo.questID)] = true end end
+    for _, todo in ipairs(record.todos) do
+        for _, id in ipairs(todo.questIDs or (todo.questID and {todo.questID}) or {}) do ids[tostring(id)] = true end
+    end
     local now = GetServerTime()
     local previous = record.questLog or {}
     local quests = {}
     for key in pairs(ids) do
         local id = tonumber(key)
         if id and id > 0 then
+            local ok, value = pcall(function()
             local old = (previous.quests or {})[tostring(id)] or {}
             local index = C_QuestLog.GetLogIndexForQuestID(id)
             local info = index and index > 0 and C_QuestLog.GetInfo(index)
@@ -39,7 +42,7 @@ function ATA:ScanQuestLog(record)
             elseif pickedUp then
                 status = started and "In progress" or objectives and "Picked up" or "Awaiting objectives"
             end
-            quests[tostring(id)] = {
+            local snapshot = {
                 title = title or old.title, reset = reset, pickedUp = pickedUp,
                 readyToTurnIn = ready, started = started, objectivesKnown = objectives ~= nil,
                 status = status,
@@ -47,7 +50,15 @@ function ATA:ScanQuestLog(record)
             }
             if not title and not old.title and not self.questDataRequested[id] then
                 self.questDataRequested[id] = true
-                C_QuestLog.RequestLoadQuestByID(id)
+                if C_QuestLog.RequestLoadQuestByID then pcall(C_QuestLog.RequestLoadQuestByID, id) end
+            end
+            return snapshot
+            end)
+            if ok then
+                quests[tostring(id)] = value
+            else
+                quests[tostring(id)] = {status="Scan failed", scannedAt=now, error=tostring(value)}
+                print("|cffff4444Alt Tracking Assistant:|r Quest " .. id .. " scan failed: " .. tostring(value))
             end
         end
     end
@@ -127,6 +138,17 @@ function ATA:TodoState(record, todo)
     local data = todo.questID and (log.quests or {})[tostring(todo.questID)]
         or todo.achievementID and (log.achievements or {})[tostring(todo.achievementID)]
         or todo.itemID and (log.items or {})[tostring(todo.itemID)]
+    if todo.questIDs and #todo.questIDs > 1 then
+        local best, score = nil, -1
+        for _, id in ipairs(todo.questIDs) do
+            local value = (log.quests or {})[tostring(id)]
+            if value then
+                local rank = value.status == "Completed" and 10 or value.pickedUp and 5 or 1
+                if rank > score then best=value; score=rank end
+            end
+        end
+        data = best
+    end
     local automatic = todo.questID or todo.achievementID or todo.itemID
     local reset = todo.questID and ((todo.resetMode and todo.resetMode ~= "Auto") and todo.resetMode or data and data.reset or "Unknown") or todo.reset or "None"
     if automatic then

@@ -694,6 +694,11 @@ function ATA.CreateNotesPanel(parent, helpers)
 end
 
 local function TodoKey(todo)
+    if todo.questIDs and #todo.questIDs > 1 then
+        local ids={}; for _, id in ipairs(todo.questIDs) do table.insert(ids,id) end
+        table.sort(ids)
+        return "questGroup:" .. table.concat(ids,",")
+    end
     return todo.questID and "quest:" .. todo.questID or todo.achievementID and "achievement:" .. todo.achievementID
         or todo.itemID and "item:" .. todo.itemID or "manual:" .. (todo.sharedID or todo.id)
 end

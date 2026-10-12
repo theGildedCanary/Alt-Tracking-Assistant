@@ -17,6 +17,7 @@ The project uses semantic versioning:
 
 ### Added
 
+- Editable quest IDs in the dashboard quest popup and support for multiple alternate IDs on one task, with completion when any tracked variant is complete.
 - Action Needed checkbox in the Companion character To Do panel. Checking it highlights that character's name on the Roster with a reddish maroon background; unchecking restores the usual formatting.
 - Action Needed flags persist per character across app restarts and refreshes, independently of task completion.
 
