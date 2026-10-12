@@ -19,6 +19,10 @@ The project is designed around a cached character database: the currently logged
 
 The current scanner records progress for Shadowlands, Dragonflight, The War Within, and Midnight:
 
+**Warlords of Draenor**
+
+- **Aggro Ring** — item 113082 is in the character's bags, personal bank, or equipped gear. Account bank items do not count.
+
 **Shadowlands**
 
 - **Covenant** — the selected character's active covenant is always shown in its covenant color. The optional **View Covenant** selector lets you review another covenant's Renown; when disabled, Renown follows the active covenant. Character mains are highlighted in gold.

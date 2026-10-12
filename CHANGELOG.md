@@ -8,6 +8,12 @@ The project uses semantic versioning:
 - **MINOR** — new backwards-compatible features
 - **PATCH** — backwards-compatible fixes and small corrections
 
+## [Unreleased]
+
+### Added
+
+- Aggro Ring tracking in Warlords of Draenor for item 113082 in bags, personal bank, or equipped gear, with matching Companion settings and column layout.
+
 ## [2.2.1] - 2026-10-11
 
 ### Fixed

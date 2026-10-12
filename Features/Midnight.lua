@@ -210,7 +210,7 @@ function ATA:ScanCurrentCharacter()
                     if not itemCount then
                         return false, "The item count API is unavailable."
                     end
-                    local count = itemCount(check.itemID, true, false, true, true)
+                    local count = itemCount(check.itemID, true, false, true, check.includeAccountBank ~= false)
                     if type(count) ~= "number" then
                         return false, "Item count could not be read for item " .. check.itemID .. "."
                     end

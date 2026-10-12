@@ -41,7 +41,7 @@ LAYOUT = [
     ),
     (
         "warlordsOfDraenor",
-        ["garrisonLevel", "tanaan", "mageTower", "stables", "bank", "tradingPost", "mining", "herbGarden"],
+        ["garrisonLevel", "tanaan", "mageTower", "stables", "bank", "tradingPost", "mining", "herbGarden", "aggroRing"],
     ),
     ("mistsOfPandaria", ["isleOfThunder", "sunsongRanch"]),
     ("cataclysm", ["moltenFront", "vashjir", "twilightHighlands"]),

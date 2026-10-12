@@ -126,6 +126,7 @@ TRACKERS = [
             ("tradingPost", "Trading Post"),
             ("mining", "Mining"),
             ("herbGarden", "Herb Garden"),
+            ("aggroRing", "Aggro Ring"),
         ],
     ),
     ("mistsOfPandaria", "Mists of Pandaria", [("isleOfThunder", "Isle of Thunder"), ("sunsongRanch", "Sunsong Ranch")]),

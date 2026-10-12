@@ -54,5 +54,11 @@ ATA.trackerDefinitions.warlordsOfDraenor = {
             label = "Herb Garden",
             questIDs = { 36404, 34193 },
         },
+        {
+            id = "aggroRing",
+            label = "Aggro Ring",
+            itemID = 113082,
+            includeAccountBank = false,
+        },
     },
 }
