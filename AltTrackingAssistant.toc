@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Alt Tracking Assistant
 ## Notes: Track alt progression, professions, quests, recurring tasks, and character history in World of Warcraft Retail.
 ## Author: Gilded Canary
