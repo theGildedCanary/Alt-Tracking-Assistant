@@ -94,14 +94,14 @@ class TodoSyncTests(unittest.TestCase):
         self.assertEqual(tab.state, {'a': [], 'b': []})
 
     def test_compact_heading_markers(self):
-        self.assertEqual(model.task_caption(model.new_task('Weekly quest', 42, reset_days=[2], priority='High'), {}), 'Weekly quest [W] [1]')
-        self.assertEqual(model.task_caption(model.new_task('Daily task', reset_days=list(range(1,8)), priority='Low'), {}), 'Daily task [D] [3]')
-        self.assertEqual(model.task_caption(model.new_task('Task'), {}), 'Task [2]')
+        self.assertEqual(model.task_caption(model.new_task('Weekly quest', 42, reset_days=[2], priority='High'), {}), '[1] Weekly quest [W]')
+        self.assertEqual(model.task_caption(model.new_task('Daily task', reset_days=list(range(1,8)), priority='Low'), {}), '[3] Daily task [D]')
+        self.assertEqual(model.task_caption(model.new_task('Task'), {}), '[2] Task')
 
     def test_quest_grid_checkbox_does_not_highlight_selected_row(self):
         from quest_log_grid import build_grid
         import theme
-        task = model.new_task('Manual task')
+        task = model.new_task('Manual task', reset='Weekly')
         records = {'a': {'name': 'Character', 'level': 90, 'classFile': 'DRUID'}}
         before = build_grid({'a': [task]}, records, selected='a')[1][0]
         model.set_status(task, 'Completed', records['a'])

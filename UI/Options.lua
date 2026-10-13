@@ -1507,8 +1507,8 @@ local function CreateOptionsPages()
         refreshElapsed = refreshElapsed + elapsed
         if refreshElapsed >= 0.25 then
             refreshElapsed = 0
-            mainsPage:RefreshControls()
-            expansionsPage:RefreshControls()
+            if mainsPage:IsVisible() then mainsPage:RefreshControls() end
+            if expansionsPage:IsVisible() then expansionsPage:RefreshControls() end
         end
     end)
 end

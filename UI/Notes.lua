@@ -517,7 +517,7 @@ function ATA.CreateNotesPanel(parent, helpers)
             local name = todo.title ~= "" and todo.title or todo.text ~= "" and todo.text or data.title or "Awaiting scan"
             local resetMark = reset == "Daily" and " [D]" or reset == "Weekly" and " [W]" or reset == "Custom" and " [" .. table.concat(todo.resetDays or {}, ",") .. "]" or ""
             local priority = todo.priority == "High" and "1" or todo.priority == "Low" and "3" or "2"
-            row.text:SetText(name .. resetMark .. " [" .. priority .. "]")
+            row.text:SetText("[" .. priority .. "] " .. name .. resetMark)
             row.text:SetTextColor(unpack(done and colors.mutedText or colors.gold))
             local height = math.max(TODO_MIN_HEIGHT, row.text:GetStringHeight() + 8)
             row:SetHeight(height)

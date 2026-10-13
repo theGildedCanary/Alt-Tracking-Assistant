@@ -1339,8 +1339,8 @@ local function CreateReportFrame()
     return frame
 end
 
-function ATA:UpdateReport()
-    if not reportFrame then
+function ATA:UpdateReport(force)
+    if not reportFrame or (not force and not reportFrame:IsShown()) then
         return
     end
 
@@ -1638,7 +1638,7 @@ function ATA:ToggleReport()
     if reportFrame:IsShown() then
         reportFrame:Hide()
     else
-        self:UpdateReport()
+        self:UpdateReport(true)
         reportFrame:Show()
     end
 end

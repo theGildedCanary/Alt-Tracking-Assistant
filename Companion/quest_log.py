@@ -271,7 +271,7 @@ def task_caption(task, record):
         ' [' + ','.join(str(day) for day in task.get('resetDays', [])) + ']'
         if reset == 'Custom' and task.get('resetDays') else '')
     priority = '1' if task.get('priority') == 'High' else '3' if task.get('priority') == 'Low' else '2'
-    return task_name(task, record) + marker + ' [' + priority + ']'
+    return '[' + priority + '] ' + task_name(task, record) + marker
 
 
 def parse_quest_ids(value):

@@ -123,7 +123,7 @@ class QuestLogTests(unittest.TestCase):
         tab.select_character(SimpleNamespace(x=10, y=10))
         self.assertEqual(tab.selected, 'a')
         self.assertTrue(tab.panel_open)
-        task = model.new_task('Detailed task', notes='Steps', priority='High')
+        task = model.new_task('Detailed task', reset='Weekly', notes='Steps', priority='High')
         tab.state['a'].append(task)
         tab.commit()
         tab.change_status(task, 'Completed')
@@ -244,7 +244,7 @@ class QuestLogTests(unittest.TestCase):
         self.assertEqual(task['resetMode'], 'Weekly')
         self.assertEqual(task['title'], 'World Tour')
         labels = [w.cget('text') for w in descendants(tab.details.inner) if isinstance(w, ttk.Label)]
-        self.assertIn('World Tour [W] [2]', labels)
+        self.assertIn('[2] World Tour [W]', labels)
         self.assertFalse(any('ID 42' in label or label == 'Quest 42' for label in labels))
         self.assertTrue(any(c.title == 'World Tour' and c.group == 'Weeklies' for c in tab.columns))
 
@@ -348,7 +348,7 @@ class QuestLogTests(unittest.TestCase):
         self.assertEqual(saved[-1]['b'][0]['title'], 'World Tour')
         self.assertFalse(tab.panel_open)
         tab.open_character('b')
-        title = next(w for w in descendants(tab.details.inner) if isinstance(w, ttk.Label) and w.cget('text') == 'World Tour [W] [2]')
+        title = next(w for w in descendants(tab.details.inner) if isinstance(w, ttk.Label) and w.cget('text') == '[2] World Tour [W]')
         title.event_generate('<Button-1>')
         popup = next(w for w in tab.winfo_children() if isinstance(w, tk.Toplevel))
         self.assertEqual(popup.cget('background'), theme.PANEL)
@@ -357,6 +357,24 @@ class QuestLogTests(unittest.TestCase):
         next(w for w in descendants(popup) if getattr(w, 'caption', '') == 'Save').invoke()
         self.assertEqual(saved[-1]['a'], [])
         self.assertEqual(len(saved[-1]['b']), 1)
+
+    def test_spreadsheet_todos_require_a_reset_schedule(self):
+        daily = model.new_task('Daily task', reset='Daily')
+        weekly = model.new_task('Weekly task', reset='Weekly')
+        custom = model.new_task('Scheduled task', reset_days=[1, 4])
+        casual = model.new_task('Casual task')
+        casual.update(status='Completed', resetAt=9999999999)
+        invalid = dict(model.new_task('Empty schedule'), reset='Custom', resetDays=[])
+        state = {'a': [daily, weekly, custom, casual, invalid],
+                 'b': [dict(weekly, reset='None')], 'c': [casual]}
+        model.set_status(daily, 'Completed', {}, now=150)
+        columns, rows, _ = build_grid(state, {}, now=151)
+        todo_columns = [i for i, column in enumerate(columns) if column.group == 'To dos']
+        self.assertEqual({columns[i].title for i in todo_columns},
+                         {'Daily task', 'Weekly task', 'Scheduled task'})
+        self.assertEqual([row[2].text for row in rows], ['1/3', '0/0', '0/0'])
+        self.assertTrue(all(rows[1][i].checked is None for i in todo_columns))
+        self.assertEqual(len(state['a']), 5)
 
     def test_shared_todo_columns_names_and_group_colors(self):
         source = model.new_task('Gather materials', reset='Weekly')
@@ -409,7 +427,7 @@ class QuestLogTests(unittest.TestCase):
         root = tk.Tk()
         root.withdraw()
         self.addCleanup(root.destroy)
-        source = model.new_task('Gather materials')
+        source = model.new_task('Gather materials', reset='Weekly')
         state = {'a': [source], 'b': [], 'c': []}
         model.assign_characters(state, source, {'a', 'b'})
         saved = []
@@ -451,14 +469,14 @@ class QuestLogTests(unittest.TestCase):
             tab.change_status(task, 'Completed')
             reload.assert_not_called()
         self.assertTrue(variable.get())
-        self.assertEqual(label.cget('text'), 'Gather materials [2]')
+        self.assertEqual(label.cget('text'), '[2] Gather materials')
         self.assertEqual(saved[-1]['a'][0]['status'], 'Completed')
         tab.render_details()
         self.assertEqual(tuple(tab.details.inner.winfo_children()), children)
         self.assertEqual(tab.details.canvas.yview(), view)
         tab.change_status(task, 'Pending')
         self.assertFalse(variable.get())
-        self.assertEqual(label.cget('text'), 'Gather materials [2]')
+        self.assertEqual(label.cget('text'), '[2] Gather materials')
 
     def test_character_order_persists_and_names_have_level_and_class_background(self):
         root = tk.Tk()
@@ -488,7 +506,7 @@ class QuestLogTests(unittest.TestCase):
         root = tk.Tk()
         root.withdraw()
         self.addCleanup(root.destroy)
-        task = model.new_task('Gather materials')
+        task = model.new_task('Gather materials', reset='Weekly')
         tab = QuestLogTab(root, {'a': [task], 'b': []})
         tab.load([self.record(), {'guid': 'b', 'name': 'Other'}])
         offset = 0

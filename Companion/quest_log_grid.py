@@ -19,6 +19,12 @@ GROUP_COLORS = {
 GROUP_ACCENTS = {group: '#ffffff' for group in GROUP_COLORS}
 
 
+def recurring_todo(task, record, now=None):
+    """Only scheduled to-dos belong in the spreadsheet and its totals."""
+    return not task.get('questID') and model.next_reset(
+        model.task_reset(task, record), now, task.get('resetDays')) is not None
+
+
 def build_grid(state, records, selected=None, now=None):
     catalog = {}
     for guid, tasks in state.items():
@@ -49,9 +55,9 @@ def build_grid(state, records, selected=None, now=None):
                Column('Character', 200, frozen=True, fg=theme.GOLD),
                Column('To do', 80, frozen=True, align='center', fg=theme.GOLD)]
     manuals = {}
-    for tasks in state.values():
+    for guid, tasks in state.items():
         for task in tasks:
-            if not task.get('questID'):
+            if recurring_todo(task, records.get(guid, {}), now):
                 manuals.setdefault(model.assignment_key(task), task)
     manual_columns = sorted(manuals, key=lambda key: (manuals[key]['title'].casefold(), key[1]))
     for quest in quests:
@@ -71,7 +77,7 @@ def build_grid(state, records, selected=None, now=None):
         record = records.get(guid, {})
         tasks = state[guid]
         bg = ''
-        manual = [t for t in tasks if not t.get('questID')]
+        manual = [t for t in tasks if recurring_todo(t, record, now)]
         class_bg = theme.CLASS_COLORS.get(record.get('classFile'), bg)
         if class_bg.upper() == '#FFFFFF':
             class_bg = theme.MUTED_TEXT

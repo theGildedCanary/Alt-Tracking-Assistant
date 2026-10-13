@@ -88,7 +88,19 @@ end
 local scheduled = false
 local worldReady = false
 local loginQueued = false
+local function scanWhenSafe()
+    if InCombatLockdown() then
+        C_Timer.After(5, scanWhenSafe)
+        return
+    end
+    local guid = UnitGUID("player")
+    local record = ATA.db and ATA.db.characters[guid]
+    if record then ATA:ScanQuestLog(record) end
+    scheduled = false
+end
 frame:SetScript("OnEvent", function(_, event, initialLogin, reloadingUI)
+    -- Other addons request quest data too; only react to our own requests.
+    if event == "QUEST_DATA_LOAD_RESULT" and not ATA.questDataRequested[initialLogin] then return end
     if event == "PLAYER_LOGIN" then
         ATA:RefreshCompanionTasks()
         return
@@ -112,12 +124,7 @@ frame:SetScript("OnEvent", function(_, event, initialLogin, reloadingUI)
     end
     if not worldReady or scheduled then return end
     scheduled = true
-    C_Timer.After(0.5, function()
-        scheduled = false
-        local guid = UnitGUID("player")
-        local record = ATA.db and ATA.db.characters[guid]
-        if record then ATA:ScanQuestLog(record) end
-    end)
+    C_Timer.After(2, scanWhenSafe)
 end)
 
 -- Manual reset days use ISO weekdays (Monday=1), at 11 a.m. fixed EDT.

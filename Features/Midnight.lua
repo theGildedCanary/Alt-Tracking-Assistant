@@ -361,12 +361,20 @@ local function runScan(retryEligible)
 end
 
 local retryNext = false
+local lastAutomaticScan = -math.huge
 local function queueScan(delay)
     if scanQueued then
         return
     end
     scanQueued = true
-    C_Timer.After(delay, function()
+    local wait = math.max(delay, 15 - (GetTime() - lastAutomaticScan))
+    C_Timer.After(wait, function()
+        if InCombatLockdown() then
+            scanQueued = false
+            queueScan(5)
+            return
+        end
+        lastAutomaticScan = GetTime()
         local retry = retryNext
         retryNext = false
         runScan(retry)
