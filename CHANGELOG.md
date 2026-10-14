@@ -14,6 +14,22 @@ The project uses semantic versioning:
 
 - Aggro Ring tracking in Warlords of Draenor for item 113082 in bags, personal bank, or equipped gear, with matching Companion settings and column layout.
 
+## [2.2.2] - 2026-10-13
+
+### Fixed
+
+- Item-based progression scans prefer `C_Item.GetItemCount` for Retail 12.1.5 compatibility, retaining the legacy fallback and existing personal/Warband bank scope.
+- Updated Quest Log regression tests to match current reset snapshots and login/event scheduling.
+
+### Added
+
+- Regression coverage for current and legacy item APIs, bank scope, Legion artifact counts, and unavailable item APIs.
+- Automated validation runs scanner regression tests and checks local QuestSync.lua and NotesSync.lua syntax when present.
+
+### Validation
+
+- Lua 5.1 syntax, addon load-list references, three scanner regression tests, and all 88 Companion tests passed. Some Companion UI tests emitted cleanup warnings; live in-game verification remains pending.
+
 ## [2.2.1] - 2026-10-11
 
 ### Fixed

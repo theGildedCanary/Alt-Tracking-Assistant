@@ -99,4 +99,23 @@ if [ -f AppSync.lua ]; then
   "$LUAC" -p AppSync.lua
 fi
 
+for file in QuestSync.lua NotesSync.lua; do
+  if [ -f "$file" ]; then
+    "$LUAC" -p "$file"
+  fi
+done
+
+if command -v lua5.1 >/dev/null 2>&1; then
+  LUA="lua5.1"
+elif command -v lua >/dev/null 2>&1; then
+  LUA="lua"
+else
+  echo "ERROR: Lua interpreter not found."
+  exit 1
+fi
+
+for test in scripts/test-*.lua; do
+  "$LUA" "$test"
+done
+
 echo "Validation passed."

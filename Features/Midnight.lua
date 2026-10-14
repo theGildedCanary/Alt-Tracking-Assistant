@@ -109,7 +109,7 @@ function ATA:ScanCurrentCharacter()
         return false, "The quest completion API is unavailable."
     end
 
-    local itemCount = GetItemCount
+    local itemCount = C_Item and C_Item.GetItemCount or GetItemCount
     local progress = {}
     local previousRecord = self.db.characters[guid]
     local _, playerClassFile = UnitClass("player")

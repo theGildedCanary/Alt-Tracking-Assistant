@@ -8,6 +8,7 @@ local fulfilled, ready = 0, false
 function time() return now end
 function GetServerTime() return now end
 function UnitGUID() return "a" end
+function InCombatLockdown() return false end
 function GetQuestResetTime() return 100 end
 C_DateAndTime = {GetSecondsUntilWeeklyReset = function() return 400 end}
 Enum = {QuestFrequency = {Daily = 1, Weekly = 2}}
@@ -23,7 +24,7 @@ C_QuestLog = {
 }
 function CreateFrame()
     return {RegisterEvent = function(_, event) events[event] = true end,
-            SetScript = function(_, _, fn) callbacks.event = fn end}
+            SetScript = function(_, name, fn) callbacks[name] = fn end}
 end
 C_Timer = {After = function(_, fn) callbacks.timer = fn end}
 assert(loadfile("Features/QuestLog.lua"))("AltTrackingAssistant", ATA)
@@ -62,7 +63,8 @@ assert(manualOnly.questLog.nextDailyReset == 200)
 assert(next(manualOnly.questLog.quests) == nil)
 local unselected = {guid = "c"}
 ATA:ScanQuestLog(unselected)
-assert(unselected.questLog == nil)
+assert(unselected.questLog.nextDailyReset == 200)
+assert(next(unselected.questLog.quests) == nil)
 AltTrackingAssistantQuestSync.a = {["43"] = true}
 infoAvailable, titleAvailable = false, false
 ATA:ScanQuestLog(record)
@@ -72,7 +74,10 @@ assert(record.questLog.quests["43"].reset == "Unknown")
 assert(record.questLog.quests["42"] == nil)
 ATA.db = {characters = {a = record}}
 assert(events.QUEST_ACCEPTED and events.QUEST_REMOVED and events.QUEST_DATA_LOAD_RESULT)
-callbacks.event()
+callbacks.OnEvent(nil, "PLAYER_ENTERING_WORLD")
+assert(callbacks.timer)
+callbacks.timer()
+callbacks.OnEvent(nil, "QUEST_LOG_UPDATE")
 assert(callbacks.timer)
 callbacks.timer()
 function GetQuestResetTime() return 1700000000 end

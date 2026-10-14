@@ -1,9 +1,23 @@
-# Alt Tracking Assistant 2.2.1
+# Alt Tracking Assistant 2.2.2
 
-The Companion character panel now has an **Action Needed** checkbox in **To Do**.
+October 13, 2026
 
-Check it to highlight that character’s name with a reddish maroon background on the Roster, making characters that need attention easy to spot. Uncheck it to restore their normal name formatting. The flag is saved per character across refreshes and app restarts, independently of quest or task completion.
+This maintenance update improves item tracking compatibility with World of Warcraft Retail 12.1.5.
 
-Close WoW and the Companion before replacing the addon files with this update. Your saved characters, tasks, profiles, and notes are retained.
+## Fixes
 
-Manual daily and weekday tasks now reset at 11 a.m. EDT (UTC−4), including missed resets on login. Existing EST schedules migrate automatically.
+- Item-based progression checks now prefer the current `C_Item.GetItemCount` API, with a fallback to the older API when needed.
+- Personal-bank and Warband-bank settings continue to apply to item checks, including Legion artifact tracking.
+
+## Validation
+
+- Lua 5.1 syntax checks passed, and all files listed in the addon load list were present.
+- Quest Log, background scanning/combat deferral, and item-scanner regression tests passed.
+- All 88 Companion tests passed. Some UI tests emitted cleanup warnings.
+- Automated validation now runs scanner regression tests and checks local QuestSync.lua and NotesSync.lua syntax when those files are present.
+
+Live in-game behavior still requires confirmation after reloading and rescanning.
+
+## Updating
+
+Close WoW and the Companion before replacing the addon files. After restarting WoW, open `/ata` and click **Rescan** outside combat to refresh the current character's snapshot. Your saved characters, tasks, profiles, and notes are retained.

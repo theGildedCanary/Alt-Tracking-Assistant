@@ -2,7 +2,7 @@
 ## Title: Alt Tracking Assistant
 ## Notes: Track alt progression, professions, quests, recurring tasks, and character history in World of Warcraft Retail.
 ## Author: Gilded Canary
-## Version: 2.2.1
+## Version: 2.2.2
 ## IconTexture: Interface\AddOns\AltTrackingAssistant\Media\ATAIcon.png
 ## SavedVariables: AltTrackingAssistantDB
 
