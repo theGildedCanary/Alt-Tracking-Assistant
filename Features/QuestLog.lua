@@ -1,5 +1,56 @@
 local _, ATA = ...
 
+-- Unity's activity variants, rather than the similarly numbered dungeon quests.
+local unityQuestIDs = {93766, 93767, 93769, 93889, 93890, 93891, 93892, 93909, 93910, 93911, 93912, 93913, 94457, 95842, 95843}
+local function repairUnityAssignment(todo)
+    if (todo.title or todo.text) ~= "Unity vs Void" or #(todo.questIDs or {}) ~= 9 then return end
+    for index, id in ipairs(todo.questIDs) do if id ~= 93744 + index then return end end
+    todo.questIDs = {}
+    for index, id in ipairs(unityQuestIDs) do todo.questIDs[index] = id end
+    todo.questID = unityQuestIDs[1]
+    todo.changedAt = math.max(GetServerTime(), (todo.changedAt or 0) + 1)
+end
+
+local function questReset(record, id, fallback)
+    for _, todo in ipairs(record.todos or {}) do
+        for _, questID in ipairs(todo.questIDs or (todo.questID and {todo.questID}) or {}) do
+            if questID == id and todo.resetMode and todo.resetMode ~= "Auto" then
+                return todo.resetMode, todo.resetDays
+            end
+        end
+    end
+    return fallback
+end
+
+local function completionBoundary(record, id, reset, now)
+    local mode, days = questReset(record, id, reset)
+    if days or mode == "Custom" then return ATA:NextTodoReset(mode, now, days) end
+    local seconds = mode == "Daily" and GetQuestResetTime()
+        or mode == "Weekly" and C_DateAndTime and C_DateAndTime.GetSecondsUntilWeeklyReset
+            and C_DateAndTime.GetSecondsUntilWeeklyReset()
+    local limit = mode == "Daily" and 86400 or 604800
+    return type(seconds) == "number" and seconds > 0 and seconds <= limit and now + seconds or nil
+end
+
+function ATA:RecordQuestTurnIn(record, id)
+    self:SyncTodoAssignments(record)
+    local tracked = ((_G.AltTrackingAssistantQuestSync or {})[record.guid] or {})[tostring(id)]
+    for _, todo in ipairs(record.todos or {}) do
+        for _, questID in ipairs(todo.questIDs or (todo.questID and {todo.questID}) or {}) do
+            if questID == id then tracked = true end
+        end
+    end
+    if not tracked then return end
+    record.questLog = record.questLog or {}
+    record.questLog.quests = record.questLog.quests or {}
+    local data = record.questLog.quests[tostring(id)] or {}
+    local now = GetServerTime()
+    data.status, data.pickedUp, data.readyToTurnIn = "Completed", false, false
+    data.scannedAt = now
+    data.completedUntil = completionBoundary(record, id, data.reset or "Unknown", now)
+    record.questLog.quests[tostring(id)] = data
+end
+
 function ATA:ScanQuestLog(record)
     local assignments = _G.AltTrackingAssistantQuestSync or {}
     local selected = assignments[record.guid]
@@ -28,6 +79,10 @@ function ATA:ScanQuestLog(record)
             end
             local pickedUp = C_QuestLog.IsOnQuest(id)
             local completed = C_QuestLog.IsQuestFlaggedCompleted(id)
+            -- Repeatable quests can clear their completion flag after turn-in.
+            -- Keep observed completion through its original reset, across scans/logins.
+            local retained = old.status == "Completed" and old.completedUntil and now < old.completedUntil
+            completed = completed or retained
             local ready = pickedUp and C_QuestLog.IsComplete(id) or false
             local started = ready
             local objectives = pickedUp and C_QuestLog.GetQuestObjectives(id) or nil
@@ -47,6 +102,7 @@ function ATA:ScanQuestLog(record)
                 readyToTurnIn = ready, started = started, objectivesKnown = objectives ~= nil,
                 status = status,
                 scannedAt = now,
+                completedUntil = completed and (retained and old.completedUntil or completionBoundary(record, id, reset, now)) or nil,
             }
             if not title and not old.title and not self.questDataRequested[id] then
                 self.questDataRequested[id] = true
@@ -99,6 +155,10 @@ local function scanWhenSafe()
     scheduled = false
 end
 frame:SetScript("OnEvent", function(_, event, initialLogin, reloadingUI)
+    if event == "QUEST_TURNED_IN" then
+        local record = ATA.db and ATA.db.characters[UnitGUID("player")]
+        if record then ATA:RecordQuestTurnIn(record, initialLogin) end
+    end
     -- Other addons request quest data too; only react to our own requests.
     if event == "QUEST_DATA_LOAD_RESULT" and not ATA.questDataRequested[initialLogin] then return end
     if event == "PLAYER_LOGIN" then
@@ -202,6 +262,7 @@ function ATA:SyncTodoAssignments(record)
         local todo = record.todos[index]
         if (record.todoDeleted[todo.id] or 0) >= (todo.changedAt or todo.created or 0) then table.remove(record.todos, index) end
     end
+    for _, todo in ipairs(record.todos) do repairUnityAssignment(todo) end
     -- Catch up missed resets before imported/saved tasks are shown, including
     -- login after the deadline and new assignments imported after login.
     for _, todo in ipairs(record.todos) do

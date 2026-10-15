@@ -1,12 +1,40 @@
 import tkinter as tk
 from tkinter import ttk
 import unittest
+import sqlite3
+import db
 from unittest import mock
 import quest_log as model
 from quest_log_grid import build_grid
 from quest_log_ui import QuestLogTab
 
 class MultiQuestTests(unittest.TestCase):
+    def test_unity_migration_persists_and_survives_stale_addon_data(self):
+        conn = sqlite3.connect(':memory:')
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        self.addCleanup(conn.close)
+        task = model.new_task('Unity vs Void', list(range(93745, 93754)), reset='Weekly')
+        db.set_json(conn, model.STATE_KEY, {'a': [task]})
+        migrated = model.load(conn)['a'][0]
+        self.assertIn(93767, model.quest_ids(migrated))
+        self.assertGreater(migrated['changedAt'], task['changedAt'])
+        self.assertEqual(db.get_json(conn, model.STATE_KEY)['a'][0], migrated)
+        state, _ = model.merge_addon(conn, [{'guid': 'a', 'todos': [task]}])
+        self.assertIn(93767, model.quest_ids(state['a'][0]))
+
+    def test_repair_unity_ids_without_changing_other_groups(self):
+        task = model.new_task('Unity vs Void', list(range(93745, 93754)), reset='Weekly', reset_days=[2])
+        model.repair_unity_assignment(task)
+        self.assertIn(93767, model.quest_ids(task))
+        self.assertEqual(task['resetDays'], [2])
+        self.assertEqual(task['resetMode'], 'Weekly')
+        record = {'questLog': {'quests': {'93767': {'status': 'Completed', 'scannedAt': 100}}}}
+        self.assertEqual(model.task_status(task, record, 150), 'Completed')
+        other = model.new_task('Dungeon quests', list(range(93745, 93754)), reset='Weekly')
+        model.repair_unity_assignment(other)
+        self.assertEqual(model.quest_ids(other), list(range(93745, 93754)))
+
     def test_ids_parse_and_any_completed_variant(self):
         task=model.new_task('Rotating weekly', '42, 43 44;42', reset='Weekly')
         self.assertEqual(model.quest_ids(task),[42,43,44])

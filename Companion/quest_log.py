@@ -12,6 +12,17 @@ STATE_KEY = "quest_log"
 STATUSES = ("Pending", "In progress", "Completed")
 RESETS = ("Unknown", "None", "Daily", "Weekly")
 EDT = timezone(timedelta(hours=-4), 'EDT')
+UNITY_QUEST_IDS = [93766, 93767, 93769, 93889, 93890, 93891, 93892,
+                   93909, 93910, 93911, 93912, 93913, 94457, 95842, 95843]
+
+
+def repair_unity_assignment(task):
+    """Repair the known dungeon-ID list used for Unity's activity variants."""
+    if (task.get('title') or task.get('text')) == 'Unity vs Void' and quest_ids(task) == list(range(93745, 93754)):
+        task.update(questID=UNITY_QUEST_IDS[0], questIDs=UNITY_QUEST_IDS.copy())
+        task['changedAt'] = max(time.time(), task.get('changedAt', 0) + 1)
+        return True
+    return False
 
 
 def next_reset(reset, now=None, reset_days=None):
@@ -74,7 +85,14 @@ def assign_characters(state, source, selected, now=None):
 
 def load(conn):
     raw = db.get_json(conn, STATE_KEY)
-    return copy.deepcopy(raw) if isinstance(raw, dict) else {}
+    state = copy.deepcopy(raw) if isinstance(raw, dict) else {}
+    repaired = False
+    for tasks in state.values():
+        for task in tasks:
+            repaired = repair_unity_assignment(task) or repaired
+    if repaired:
+        db.set_json(conn, STATE_KEY, state)
+    return state
 
 
 def save(conn, paths, state):
@@ -246,6 +264,7 @@ def merge_addon(conn, records):
             if not ident or (removed.get(guid) or {}).get(ident, 0) >= task.get('changedAt', task.get('created', 0)):
                 continue
             task.setdefault('title', task.get('text', ''))
+            repair_unity_assignment(task)
             task.setdefault('status', 'Completed' if task.get('done') else 'Pending')
             task.setdefault('changedAt', task.get('created', 0))
             old = next((t for t in tasks if t['id'] == ident), None)

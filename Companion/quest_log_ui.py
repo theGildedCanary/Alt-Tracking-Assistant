@@ -428,6 +428,8 @@ class QuestLogTab(ttk.Frame):
         controls.pack(side='bottom', fill='x', pady=(12, 0), before=frame.winfo_children()[0])
         Button(controls, text='Save', command=save).pack(side='right', padx=6)
         Button(controls, text='Cancel', command=lambda: self.close_popup(dialog)).pack(side='right')
+        if quest:
+            Button(controls, text='Delete', command=lambda: self.delete_quest(task, dialog)).pack(side='left')
         self.brown_widgets(dialog)
         self.prepare_popup(dialog, 'assignments')
         return dialog
@@ -577,6 +579,13 @@ class QuestLogTab(ttk.Frame):
         self.update_status_widgets(self.selected)
         self.commit(refresh=False)
 
+    def delete_quest(self, task, dialog):
+        key = model.assignment_key(task)
+        for tasks in self.state.values():
+            tasks[:] = [item for item in tasks if model.assignment_key(item) != key]
+        self.close_popup(dialog)
+        self.commit()
+
     def delete_task(self, task):
         guid = self.selected
         dialog = tk.Toplevel(self)
@@ -682,6 +691,8 @@ class QuestLogTab(ttk.Frame):
         controls.grid(row=row+3 if global_add else row+2, column=0, columnspan=2, sticky='e', pady=8)
         Button(controls, text="Save", command=save).pack(side='left', padx=6)
         Button(controls, text="Cancel", command=lambda: self.close_popup(dialog)).pack(side='left')
+        if quest and task:
+            Button(controls, text='Delete', command=lambda: self.delete_quest(task, dialog)).pack(side='left', padx=6)
         self.brown_widgets(dialog)
         self.prepare_popup(dialog, 'task_editor')
 

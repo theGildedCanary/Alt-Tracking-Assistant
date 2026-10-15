@@ -50,7 +50,12 @@ assert(record.questLog.quests["42"].status == "Completed")
 assert(record.questLog.quests["42"].reset == "Daily")
 completed = false
 ATA:ScanQuestLog(record)
+assert(record.questLog.quests["42"].status == "Completed")
+assert(record.questLog.quests["42"].completedUntil == 200)
+now = 200
+ATA:ScanQuestLog(record)
 assert(record.questLog.quests["42"].status == "Not picked up")
+now = 100
 infoAvailable, frequency = true, 2
 ATA:ScanQuestLog(record)
 assert(record.questLog.quests["42"].reset == "Weekly")
@@ -83,4 +88,33 @@ callbacks.timer()
 function GetQuestResetTime() return 1700000000 end
 ATA:ScanQuestLog(record)
 assert(record.questLog.nextDailyReset == nil)
+
+-- Any tracked variant records its turn-in immediately, even before a delayed
+-- scan runs; cleared API flags and subsequent scans must not erase it.
+local weekly = {guid="a", todos={{id="weekly", changedAt=1, questID=42, questIDs={42,43}, resetMode="Weekly"}}}
+ATA.db.characters.a = weekly
+AltTrackingAssistantQuestSync.a = {}
+callbacks.OnEvent(nil, "QUEST_TURNED_IN", 43)
+assert(weekly.questLog.quests["43"].status == "Completed")
+assert(weekly.questLog.quests["43"].completedUntil == 500)
+callbacks.timer()
+assert(ATA:TodoState(weekly, weekly.todos[1]) == true)
+now = 499
+ATA:ScanQuestLog(weekly)
+assert(weekly.questLog.quests["43"].completedUntil == 500)
+assert(ATA:TodoState(weekly, weekly.todos[1]) == true)
+now = 500
+ATA:ScanQuestLog(weekly)
+assert(ATA:TodoState(weekly, weekly.todos[1]) == false)
+callbacks.OnEvent(nil, "QUEST_TURNED_IN", 999)
+assert(weekly.questLog.quests["999"] == nil)
+
+-- Repair only the specific mistaken Unity assignment, preserving its schedule.
+local unity = {guid="b", todos={{id="unity", changedAt=1, title="Unity vs Void", questID=93745,
+    questIDs={93745,93746,93747,93748,93749,93750,93751,93752,93753}, resetMode="Weekly", resetDays={2}}}}
+ATA:ScanQuestLog(unity)
+assert(unity.todos[1].questID == 93766)
+assert(unity.questLog.quests["93767"])
+assert(unity.questLog.quests["93745"] == nil)
+assert(unity.todos[1].resetDays[1] == 2)
 print("Quest Log addon behavior checks passed.")
